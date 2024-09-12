@@ -66,3 +66,6 @@ Result: 12
 - [ ]  Extend the interpreter to support conditional expressions (`if`, `else`) and loops.
 
 
+## Contributing
+
+Feel free to fork this repository, submit issues, or contribute to the project by creating pull requests.
