@@ -22,7 +22,7 @@ Ensure you have Rust installed. You can install it from [rust-lang.org](https://
 1. Clone this repository
 ```bash
 git clone https://github.com/Hero472/langscript.git
-cd rust-lexer-parser-interpreter
+cd langscript
 ```
 2. Build the project
 ```bash
