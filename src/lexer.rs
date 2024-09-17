@@ -1,103 +1,511 @@
-#[derive(Debug, PartialEq)]
+use std::{collections::HashMap, vec};
+
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub enum TokenType {
-    Keyword(String),
-    Identifier(String),
-    Operator(String),
-    Number(f64),
-    ParenLeft,
-    ParenRight,
-    EOF,
+    LeftParen, RightParen, LeftBrace, RightBrace,
+    Comma, Dot, Minus, Plus, Semicolon, Slash, Star,
+
+    Bang, BangEqual,
+    Equal, EqualEqual,
+    Greater, GreaterEqual,
+    Less, LessEqual,
+
+    Identifier, String, Number,
+
+    And, Class, Else, False, True, Fun, For,
+    If, Null, Or, Print, Return, Super, This,
+    Let, While,
+
+    EOF
+}
+
+#[derive(Debug,Clone)]
+pub enum LiteralValue {
+    IntValue(i64),
+    FloatValue(f64),
+    StringValue(String),
+    Identifier(String)
+}
+
+#[derive(Debug ,Clone)]
+pub struct Token {
+    token_type: TokenType,
+    lexeme: String,
+    literal: Option<LiteralValue>,
+    line_number: usize,
+}
+
+impl std::fmt::Display for TokenType {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f,"{:?}",self)
+    }
+}
+
+impl Token {
+
+    pub fn new(token_type: TokenType, lexeme: String, literal: Option<LiteralValue>, line_number: usize) -> Self {
+        Self {
+            token_type,
+            lexeme,
+            literal,
+            line_number
+        }
+    }
+
+    pub fn to_string(self: &Self) -> String {
+        format!("{} {} {:?} {}",self.token_type ,self.lexeme, self.literal, self.line_number)
+    }
+
+}
+
+pub fn get_keywords_hashmap() -> HashMap<&'static str, TokenType> {
+    HashMap::from([
+        ("and", TokenType::And),
+        ("class", TokenType::Class),
+        ("else", TokenType::Else),
+        ("false", TokenType::False),
+        ("true", TokenType::True),
+        ("fun", TokenType::Fun),
+        ("for", TokenType::For),
+        ("if", TokenType::If),
+        ("null", TokenType::Null),
+        ("or", TokenType::Or),
+        ("print", TokenType::Print),
+        ("return", TokenType::Return),
+        ("super", TokenType::Super),
+        ("this", TokenType::This),
+        ("let", TokenType::Let),
+        ("while", TokenType::While),
+    ])
 }
 
 pub struct Lexer {
-    input: String,
-    position: usize,
-    current_char: Option<char>,
+    source: String,
+    tokens: Vec<Token>,
+    start: usize,
+    current: usize,
+    line: usize,
+
+    keywords: HashMap<&'static str,TokenType>
 }
 
 impl Lexer {
 
-    pub fn new(input: String) -> Self {
-        let mut lexer: Lexer = Lexer {
-            input,
-            position: 0,
-            current_char: None,
-        };
-        lexer.advance();
-        lexer
+    pub fn new(source: &str) -> Self {
+        Self {
+            source: source.to_string(),
+            tokens: vec![],
+            start: 0,
+            current: 0,
+            line: 1,
+            keywords: get_keywords_hashmap()
+        }
     }
 
-    pub fn advance(&mut self) {
-        self.current_char = if self.position < self.input.len() {
-            Some(self.input.chars().nth(self.position).unwrap())
+    pub fn scan_tokens(&mut self) -> Result<Vec<Token>, String> {
+        
+        let mut errors: Vec<String> = vec![];
+
+        while !self.is_at_end() {
+            self.start = self.current;
+            match self.scan_token() {
+                Ok(_) => (),
+                Err(msg) => errors.push(msg) ,
+            }
+        }
+
+        self.tokens.push(Token {
+            token_type: TokenType::EOF,
+            lexeme: "".to_string(),
+            literal: None,
+            line_number: self.line, 
+        });
+
+        if errors.len() > 0 {
+            let mut joined: String = String::new();
+                for msg in &errors {
+                    joined.push_str(msg);
+                    joined.push_str("\n");
+                }
+            return Err(joined)
+        }
+
+        Ok(self.tokens.clone())
+
+    }
+
+    fn is_at_end(&self) -> bool {
+        self.current >= self.source.len()
+    }
+
+    fn is_digit(&self, ch: char) -> bool {
+        let uch: u8 = ch as u8;
+        return uch >= '0' as u8 && uch <= '9' as u8
+    }
+
+    fn is_alpha(&self, ch: char) -> bool {
+        let uch: u8 = ch as u8;
+        return (uch >= 'a' as u8 && uch <= 'z' as u8) || (uch >= 'A' as u8 && uch <= 'Z' as u8) || (ch == '_')
+    }
+
+    fn is_alpha_numeric(&self, ch: char) -> bool { self.is_alpha(ch) || self.is_digit(ch) }
+
+    fn scan_token(&mut self) -> Result<(), String> {
+        let c: char = self.advance();
+
+        match c {
+            '(' => self.add_token(TokenType::LeftParen),
+            ')' => self.add_token(TokenType::RightParen),
+            '{' => self.add_token(TokenType::LeftBrace),
+            '}' => self.add_token(TokenType::RightBrace),
+            ',' => self.add_token(TokenType::Comma),
+            '.' => self.add_token(TokenType::Dot),
+            '-' => self.add_token(TokenType::Minus),
+            '+' => self.add_token(TokenType::Plus),
+            ';' => self.add_token(TokenType::Semicolon),
+            '*' => self.add_token(TokenType::Star),
+            '!' | '=' | '<' | '>' => {
+            let token: TokenType = match (c, self.char_match('=')) {
+                ('!', true) => TokenType::BangEqual,
+                ('!', false) => TokenType::Bang,
+                ('=', true) => TokenType::EqualEqual,
+                ('=', false) => TokenType::Equal,
+                ('<', true) => TokenType::LessEqual,
+                ('<', false) => TokenType::Less,
+                ('>', true) => TokenType::GreaterEqual,
+                ('>', false) => TokenType::Greater,
+                _ => return Err(format!("Unrecognized token: {}", c)),
+            };
+            self.add_token(token);
+            }
+            '/' => {
+                if self.char_match('/') {
+
+                    while self.peek() != '\n' && !self.is_at_end() {
+                        self.advance();
+                    }
+
+                } else if self.char_match( '*'){
+
+                    while !self.is_at_end() {
+                        if self.peek() == '*' && self.peek_next() == '/' {
+                            self.advance(); // Advance to '*'
+                            self.advance(); // Advance to '/'
+                            break;
+                        } 
+                        if self.peek() == '\n' {
+                            self.line += 1;
+                        }
+                        self.advance();
+                    }
+                    
+                } else {
+                    self.add_token(TokenType::Slash);
+                }
+            }
+            '"' => self.string()?,
+            ' ' | 'r' | 't' => {},
+            '\n' => self.line += 1,
+            c => {
+                if self.is_digit(c) {
+                    self.number()?;
+                }else if self.is_alpha(c) {
+                    self.identifier();
+                } else {
+                    return Err(format!("Unrecognized char: {} at line: {}", c, self.line)) 
+                }
+            }
+        }
+        Ok(())
+    }
+
+    fn peek(&self) -> char {
+        if self.is_at_end() {
+            return '\0'
+        }
+        self.source.chars().nth(self.current).unwrap()
+    }
+
+    fn peek_next(&self) -> char {
+        if self.is_at_end() {
+            return '\0';
+        }
+        self.source.chars().nth(self.current + 1).unwrap()
+    }
+
+    // Helper function to add a token with a lexeme
+    fn add_token_with_lexeme(&mut self, token_type: TokenType, lexeme: String) {
+        self.tokens.push(Token {
+            token_type,
+            lexeme,
+            literal: None, // For now, no literal associated with identifiers
+            line_number: self.line,
+        });
+    }
+
+    // LITERAL IDENTIFIERS
+
+    fn identifier(&mut self) {
+        while self.is_alpha_numeric(self.peek()) {
+            self.advance();
+        }
+    
+        let lexeme: &str = &self.source[self.start..self.current];
+    
+        if let Some(&token_type) = self.keywords.get(lexeme) {
+            self.add_token_with_lexeme(token_type, lexeme.to_string());
         } else {
-            None
+            self.add_token_with_lexeme(TokenType::Identifier, lexeme.to_string());
+        }
+    }
+
+    fn number(&mut self) -> Result<(), String> {
+        while self.is_digit(self.peek()) {
+            self.advance();
+        }
+
+        if self.peek() == '.' && self.is_digit(self.peek_next()) {
+            self.advance();
+
+            while self.is_digit(self.peek()) {
+                self.advance();
+            }
+        }
+        let substring: &str = &self.source[self.start..self.current];
+        let value: Result<f64, std::num::ParseFloatError> = substring.parse::<f64>();
+
+        match value {
+            Ok(value) =>  self.add_token_lit(TokenType::Number,Some(LiteralValue::FloatValue(value))),
+            Err(_) => return Err(format!("Could not parse number {} in line {}", substring, self.line)),
+        }
+
+        Ok(())
+    }
+
+    fn string(&mut self) -> Result<(), String> {
+        while self.peek() != '"' && !self.is_at_end() {
+            if self.peek() == '\n' {
+                self.line += 1;
+            }
+            self.advance();
+        }
+    
+        if self.is_at_end() {
+            return Err(format!("Unterminated string at line: {}", self.line));
+        }
+    
+        self.advance();
+    
+        let value: &str = &self.source[self.start + 1..self.current - 1];
+    
+        println!("{:?}",value);
+
+        self.add_token_lit(TokenType::String, Some(LiteralValue::StringValue(value.to_string())));
+    
+        Ok(())
+    }
+
+    //  LEXER FUNCTIONS
+    
+    fn char_match(&mut self, expected: char) -> bool {
+        if !self.is_at_end() && self.source.chars().nth(self.current).unwrap() == expected {
+            self.current += 1;
+            return true;
+        }
+        false
+    }
+
+    fn advance(&mut self) -> char {
+        let c: char = self.source.chars().nth(self.current).unwrap();
+        self.current +=1;
+        
+        c as char
+    }
+
+    fn add_token(&mut self, token_type: TokenType) {
+        self.add_token_lit(token_type, None)
+    }
+
+    fn add_token_lit(&mut self, token_type: TokenType, literal: Option<LiteralValue>) {
+
+        let mut text: String = "".to_string();
+        let _lit = self.source[self.start..self.current].chars().map(|ch| text.push(ch));
+
+        self.tokens.push(Token {
+            token_type: token_type,
+            lexeme: text,
+            literal: literal,
+            line_number: self.line,
+        });
+    }
+
+}
+
+// TESTS
+
+#[cfg(test)]
+mod tests {
+    use core::panic;
+
+    use super::*;
+
+    #[test]
+    fn handle_one_char_tokens() {
+        let source: &str = "(( ))";
+        let mut lexer: Lexer = Lexer::new(source);
+
+        let _ = lexer.scan_tokens().unwrap();
+
+        assert_eq!(lexer.tokens.len(),5);
+        assert_eq!(lexer.tokens[0].token_type, TokenType::LeftParen);
+        assert_eq!(lexer.tokens[1].token_type, TokenType::LeftParen);
+        assert_eq!(lexer.tokens[2].token_type, TokenType::RightParen);
+        assert_eq!(lexer.tokens[3].token_type, TokenType::RightParen);
+        assert_eq!(lexer.tokens[4].token_type, TokenType::EOF);
+    }
+
+    #[test]
+    fn handle_two_char_tokens() {
+        let source: &str = "! != = == > >= < <= //";
+        let mut lexer: Lexer = Lexer::new(source);
+
+        let _ = lexer.scan_tokens().unwrap();
+
+        assert_eq!(lexer.tokens.len(),9);
+        assert_eq!(lexer.tokens[0].token_type, TokenType::Bang);
+        assert_eq!(lexer.tokens[1].token_type, TokenType::BangEqual);
+        assert_eq!(lexer.tokens[2].token_type, TokenType::Equal);
+        assert_eq!(lexer.tokens[3].token_type, TokenType::EqualEqual);
+        assert_eq!(lexer.tokens[4].token_type, TokenType::Greater);
+        assert_eq!(lexer.tokens[5].token_type, TokenType::GreaterEqual);
+        assert_eq!(lexer.tokens[6].token_type, TokenType::Less);
+        assert_eq!(lexer.tokens[7].token_type, TokenType::LessEqual);
+        assert_eq!(lexer.tokens[8].token_type, TokenType::EOF);
+    }
+
+    #[test]
+    fn handle_multi_line_comment() {
+        let source: &str = "/* this\n is\n a\n multi\n line\n comment\n */";
+        let mut lexer: Lexer = Lexer::new(source);
+
+        let _ = lexer.scan_tokens().unwrap();
+        assert_eq!(lexer.tokens.len(),1);
+        assert_eq!(lexer.tokens[0].token_type, TokenType::EOF);
+        assert_eq!(lexer.line, 7);
+    }
+
+    #[test]
+    fn handle_string_lit() {
+        let source: &str = r#""this is a string""#;
+        let mut lexer: Lexer = Lexer::new(source);
+
+        let _ = lexer.scan_tokens().unwrap();
+
+        assert_eq!(lexer.tokens.len(),2);
+        assert_eq!(lexer.tokens[0].token_type, TokenType::String);
+        
+        match lexer.tokens[0].literal.as_ref().unwrap() {
+            LiteralValue::StringValue(val) => 
+                assert_eq!(val, "this is a string"),
+                _ => panic!("Incorrect literal type")
         };
-        self.position += 1;
     }
 
-    fn skip_whitespace(&mut self) {
-        while let Some(c) = self.current_char {
-            if c.is_whitespace() {
-                self.advance();
-            } else {
-                break;
-            }
-        }
-    }
-
-    fn read_number(&mut self) -> TokenType {
-        let mut number: String = String::new();
-        while let Some(c) = self.current_char {
-            if c.is_digit(10) || c == '.' {
-                number.push(c);
-                self.advance();
-            } else {
-                break;
-            }
-        }
-        TokenType::Number(number.parse::<f64>().unwrap())
-    }
-
-    fn read_identifier(&mut self) -> TokenType {
-        let mut ident: String = String::new();
-        while let Some(c) = self.current_char {
-            if c.is_alphanumeric() || c == '_' {
-                ident.push(c);
-                self.advance();
-            } else {
-                break;
-            }
-        }
-        match ident.as_str() {
-            "if" | "else" | "let" => TokenType::Keyword(ident),
-            _ => TokenType::Identifier(ident),
+    #[test]
+    fn handle_string_lit_unterminated() {
+        let source: &str = r#""this is a unterminated string"#;
+        let mut lexer: Lexer = Lexer::new(source);
+        let result: Result<Vec<Token>, String> = lexer.scan_tokens();
+    
+        match result {
+            Err(msg) => assert!(msg.contains("Unterminated string")),
+            _ => panic!("Should have failed with an unterminated string error"),
         }
     }
 
-    pub fn next_token(&mut self) -> TokenType {
-        self.skip_whitespace();
+    #[test]
+    fn handle_string_lit_multiline() {
+        let source: &str = "\"this is a\n multi line string\"";
+        let mut lexer: Lexer = Lexer::new(source);
 
-        if let Some(c) = self.current_char {
-            match c {
-                '(' => {
-                    self.advance();
-                    return TokenType::ParenLeft;
-                }
-                ')' => {
-                    self.advance();
-                    return TokenType::ParenRight;
-                }
-                '0'..='9' => return self.read_number(),
-                'a'..='z' | 'A'..='Z' | '_' => return self.read_identifier(),
-                _ => {
-                    self.advance();
-                    return TokenType::Operator(c.to_string());
-                }
-            }
+        let _ = lexer.scan_tokens().unwrap();
+
+        assert_eq!(lexer.tokens.len(),2);
+        assert_eq!(lexer.tokens[0].token_type, TokenType::String);
+
+        match lexer.tokens[0].literal.as_ref().unwrap() {
+            LiteralValue::StringValue(val) => assert_eq!(val,"this is a\n multi line string"),
+            _ => panic!("Incorrect literal type")
+        }
+    }
+
+    #[test]
+    fn handle_literals() {
+        let source: &str = "123.123\n123.0\n5";
+        let mut lexer: Lexer = Lexer::new(source);
+
+        _ = lexer.scan_tokens().unwrap();
+
+        assert_eq!(lexer.tokens.len(),4);
+
+        for i in 0..3 {
+            assert_eq!(lexer.tokens[i].token_type, TokenType::Number);
         }
 
-        TokenType::EOF
+        match lexer.tokens[0].literal.as_ref().unwrap() {
+            LiteralValue::FloatValue(val) => assert_eq!(*val, 123.123),
+            _ => panic!("Incorect number")
+        }
+        match lexer.tokens[1].literal.as_ref().unwrap() {
+            LiteralValue::FloatValue(val) => assert_eq!(*val, 123.0),
+            _ => panic!("Incorect number")
+        }
+        match lexer.tokens[2].literal.as_ref().unwrap() {
+            LiteralValue::FloatValue(val) => assert_eq!(*val, 5.0),
+            _ => panic!("Incorect number")
+        }
+    }
+    
+    #[test]
+    fn handle_identifier() {
+        let source: &str = "this_is_a_var = 1;";
+        let mut lexer: Lexer = Lexer::new(source);
+
+        _ = lexer.scan_tokens().unwrap();
+
+        assert_eq!(lexer.tokens.len(), 5);
+        println!("{:?}", lexer.tokens[0]);
+        assert_eq!(lexer.tokens[0].token_type, TokenType::Identifier);
+        assert_eq!(lexer.tokens[1].token_type, TokenType::Equal);
+        assert_eq!(lexer.tokens[2].token_type, TokenType::Number);
+        assert_eq!(lexer.tokens[3].token_type, TokenType::Semicolon);
+        assert_eq!(lexer.tokens[4].token_type, TokenType::EOF);
+    }
+
+    #[test]
+    fn get_keywords() {
+        let source: &str = "let x = 1; \n while x { print 10 };";
+        let mut lexer: Lexer = Lexer::new(source);
+    
+        let _ = lexer.scan_tokens().unwrap();
+    
+        // Assert the number of tokens
+        assert_eq!(lexer.tokens.len(), 13);
+
+        // Check the token types
+        assert_eq!(lexer.tokens[0].token_type, TokenType::Let);         // "let"
+        assert_eq!(lexer.tokens[1].token_type, TokenType::Identifier);  // "x"
+        assert_eq!(lexer.tokens[2].token_type, TokenType::Equal);       // "="
+        assert_eq!(lexer.tokens[3].token_type, TokenType::Number);      // "1"
+        assert_eq!(lexer.tokens[4].token_type, TokenType::Semicolon);   // ";"
+        assert_eq!(lexer.tokens[5].token_type, TokenType::While);       // "while"
+        assert_eq!(lexer.tokens[6].token_type, TokenType::Identifier);  // "x"
+        assert_eq!(lexer.tokens[7].token_type, TokenType::LeftBrace);   // "{"
+        assert_eq!(lexer.tokens[8].token_type, TokenType::Print);       // "print"
+        assert_eq!(lexer.tokens[9].token_type, TokenType::Number);      // "10"
+        assert_eq!(lexer.tokens[10].token_type, TokenType::RightBrace); // "}"
+        assert_eq!(lexer.tokens[11].token_type, TokenType::Semicolon); // ";"
+        assert_eq!(lexer.tokens[12].token_type, TokenType::EOF);
     }
 
 }
