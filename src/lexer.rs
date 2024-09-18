@@ -27,12 +27,12 @@ pub enum LiteralValue {
     Identifier(String)
 }
 
-#[derive(Debug ,Clone)]
+#[derive(Debug, Clone)]
 pub struct Token {
-    token_type: TokenType,
-    lexeme: String,
-    literal: Option<LiteralValue>,
-    line_number: usize,
+    pub token_type: TokenType,
+    pub lexeme: String,
+    pub literal: Option<LiteralValue>,
+    pub line_number: usize,
 }
 
 impl std::fmt::Display for TokenType {
@@ -52,8 +52,9 @@ impl Token {
         }
     }
 
+    // not modify or delete
     pub fn to_string(self: &Self) -> String {
-        format!("{} {} {:?} {}",self.token_type ,self.lexeme, self.literal, self.line_number)
+        format!("{}",self.lexeme)
     }
 
 }
@@ -102,25 +103,30 @@ impl Lexer {
         }
     }
 
+    // principal scan
     pub fn scan_tokens(&mut self) -> Result<Vec<Token>, String> {
         
         let mut errors: Vec<String> = vec![];
 
+        // while source hasnt end scan token and push errors if they are
+        // and update self.start
         while !self.is_at_end() {
             self.start = self.current;
             match self.scan_token() {
                 Ok(_) => (),
-                Err(msg) => errors.push(msg) ,
+                Err(msg) => errors.push(msg),
             }
         }
 
+        // push end file
         self.tokens.push(Token {
             token_type: TokenType::EOF,
-            lexeme: "".to_string(),
+            lexeme: "End of File".to_string(),
             literal: None,
             line_number: self.line, 
         });
 
+        // collect errors
         if errors.len() > 0 {
             let mut joined: String = String::new();
                 for msg in &errors {
@@ -134,23 +140,9 @@ impl Lexer {
 
     }
 
-    fn is_at_end(&self) -> bool {
-        self.current >= self.source.len()
-    }
-
-    fn is_digit(&self, ch: char) -> bool {
-        let uch: u8 = ch as u8;
-        return uch >= '0' as u8 && uch <= '9' as u8
-    }
-
-    fn is_alpha(&self, ch: char) -> bool {
-        let uch: u8 = ch as u8;
-        return (uch >= 'a' as u8 && uch <= 'z' as u8) || (uch >= 'A' as u8 && uch <= 'Z' as u8) || (ch == '_')
-    }
-
-    fn is_alpha_numeric(&self, ch: char) -> bool { self.is_alpha(ch) || self.is_digit(ch) }
-
     fn scan_token(&mut self) -> Result<(), String> {
+
+        // consume char
         let c: char = self.advance();
 
         match c {
@@ -181,11 +173,14 @@ impl Lexer {
             '/' => {
                 if self.char_match('/') {
 
+                    // while comment exist, skip
                     while self.peek() != '\n' && !self.is_at_end() {
                         self.advance();
                     }
 
                 } else if self.char_match( '*'){
+
+                    let start_line: usize = self.current;
 
                     while !self.is_at_end() {
                         if self.peek() == '*' && self.peek_next() == '/' {
@@ -198,13 +193,17 @@ impl Lexer {
                         }
                         self.advance();
                     }
+
+                    if self.is_at_end() {
+                        return Err(format!("Unterminated multi line comment in line {}",start_line));
+                    }
                     
                 } else {
                     self.add_token(TokenType::Slash);
                 }
             }
             '"' => self.string()?,
-            ' ' | 'r' | 't' => {},
+            ' ' | '\r' | '\t' => {},
             '\n' => self.line += 1,
             c => {
                 if self.is_digit(c) {
@@ -219,6 +218,9 @@ impl Lexer {
         Ok(())
     }
 
+    //  ------------------------------------- UTILS -----------------------------------------------------------
+
+    // if char at end return null, otherwise return char without advancing
     fn peek(&self) -> char {
         if self.is_at_end() {
             return '\0'
@@ -226,6 +228,7 @@ impl Lexer {
         self.source.chars().nth(self.current).unwrap()
     }
 
+     // if char at end return null, otherwise return the next char without advancing
     fn peek_next(&self) -> char {
         if self.is_at_end() {
             return '\0';
@@ -233,37 +236,48 @@ impl Lexer {
         self.source.chars().nth(self.current + 1).unwrap()
     }
 
-    // Helper function to add a token with a lexeme
-    fn add_token_with_lexeme(&mut self, token_type: TokenType, lexeme: String) {
-        self.tokens.push(Token {
-            token_type,
-            lexeme,
-            literal: None, // For now, no literal associated with identifiers
-            line_number: self.line,
-        });
+    fn is_at_end(&self) -> bool {
+        self.current >= self.source.len()
     }
 
-    // LITERAL IDENTIFIERS
+    fn is_digit(&self, ch: char) -> bool {
+        let uch: u8 = ch as u8;
+        return uch >= '0' as u8 && uch <= '9' as u8
+    }
+
+    fn is_alpha(&self, ch: char) -> bool {
+        let uch: u8 = ch as u8;
+        return (uch >= 'a' as u8 && uch <= 'z' as u8) || (uch >= 'A' as u8 && uch <= 'Z' as u8) || (ch == '_') || (ch == '-')
+    }
+
+    fn is_alpha_numeric(&self, ch: char) -> bool { self.is_alpha(ch) || self.is_digit(ch) }
+
+    // ---------------------------------------------- LITERAL IDENTIFIERS ----------------------------------------------------------
 
     fn identifier(&mut self) {
+
+        // while is a valid alpha numeric advance
         while self.is_alpha_numeric(self.peek()) {
             self.advance();
         }
-    
+        
+        // save lexeme
         let lexeme: &str = &self.source[self.start..self.current];
     
         if let Some(&token_type) = self.keywords.get(lexeme) {
-            self.add_token_with_lexeme(token_type, lexeme.to_string());
+            self.add_token(token_type);
         } else {
-            self.add_token_with_lexeme(TokenType::Identifier, lexeme.to_string());
+            self.add_token_lit(TokenType::Identifier,Some(LiteralValue::Identifier(lexeme.to_string())),lexeme.to_string());
         }
     }
 
     fn number(&mut self) -> Result<(), String> {
+        // while is still a number advance
         while self.is_digit(self.peek()) {
             self.advance();
         }
 
+        // if its a float still advance and continue reading
         if self.peek() == '.' && self.is_digit(self.peek_next()) {
             self.advance();
 
@@ -271,18 +285,22 @@ impl Lexer {
                 self.advance();
             }
         }
+
         let substring: &str = &self.source[self.start..self.current];
         let value: Result<f64, std::num::ParseFloatError> = substring.parse::<f64>();
 
         match value {
-            Ok(value) =>  self.add_token_lit(TokenType::Number,Some(LiteralValue::FloatValue(value))),
+            Ok(value) =>  self.add_token_lit(TokenType::Number,Some(LiteralValue::FloatValue(value)),value.to_string()),
             Err(_) => return Err(format!("Could not parse number {} in line {}", substring, self.line)),
         }
 
         Ok(())
     }
 
+    // read string 
     fn string(&mut self) -> Result<(), String> {
+
+        // while string hasnt ended keep advancing
         while self.peek() != '"' && !self.is_at_end() {
             if self.peek() == '\n' {
                 self.line += 1;
@@ -290,31 +308,35 @@ impl Lexer {
             self.advance();
         }
     
+        // if string is unterminated return error
         if self.is_at_end() {
             return Err(format!("Unterminated string at line: {}", self.line));
         }
     
+        // consume '"'
         self.advance();
     
+        // value is the string without the ""
         let value: &str = &self.source[self.start + 1..self.current - 1];
-    
-        println!("{:?}",value);
 
-        self.add_token_lit(TokenType::String, Some(LiteralValue::StringValue(value.to_string())));
+        // save string with literal
+        self.add_token_lit(TokenType::String, Some(LiteralValue::StringValue(value.to_string())),value.to_string());
     
         Ok(())
     }
 
-    //  LEXER FUNCTIONS
+    // ------------------------------------- LEXER FUNCTIONS --------------------------------------------------
     
+    // if the char is what expected consume the char
     fn char_match(&mut self, expected: char) -> bool {
         if !self.is_at_end() && self.source.chars().nth(self.current).unwrap() == expected {
-            self.current += 1;
+            self.advance();
             return true;
         }
         false
     }
 
+    // read, consume and return char
     fn advance(&mut self) -> char {
         let c: char = self.source.chars().nth(self.current).unwrap();
         self.current +=1;
@@ -322,14 +344,13 @@ impl Lexer {
         c as char
     }
 
+    // add token to self.tokens with token_type and without literal
     fn add_token(&mut self, token_type: TokenType) {
-        self.add_token_lit(token_type, None)
+        self.add_token_lit(token_type, None, "".to_string())
     }
 
-    fn add_token_lit(&mut self, token_type: TokenType, literal: Option<LiteralValue>) {
-
-        let mut text: String = "".to_string();
-        let _lit = self.source[self.start..self.current].chars().map(|ch| text.push(ch));
+    // add token with token_type lexeme, literal and line
+    fn add_token_lit(&mut self, token_type: TokenType, literal: Option<LiteralValue>, text: String) {
 
         self.tokens.push(Token {
             token_type: token_type,
@@ -341,7 +362,7 @@ impl Lexer {
 
 }
 
-// TESTS
+// ---------------------------------------------------- TESTS ----------------------------------------------------
 
 #[cfg(test)]
 mod tests {
@@ -388,10 +409,24 @@ mod tests {
         let source: &str = "/* this\n is\n a\n multi\n line\n comment\n */";
         let mut lexer: Lexer = Lexer::new(source);
 
-        let _ = lexer.scan_tokens().unwrap();
+        let _ = lexer.scan_tokens();
+
         assert_eq!(lexer.tokens.len(),1);
-        assert_eq!(lexer.tokens[0].token_type, TokenType::EOF);
         assert_eq!(lexer.line, 7);
+        assert_eq!(lexer.tokens[0].token_type, TokenType::EOF)
+    }
+
+    #[test]
+    fn handle_multi_line_comment_unterminated() {
+        let source: &str = "/* this\n is\n a\n multi\n line\n comment\n";
+        let mut lexer: Lexer = Lexer::new(source);
+
+        let result: Result<Vec<Token>, String> = lexer.scan_tokens();
+        
+        match result {
+            Err(msg) => assert!(msg.contains("Unterminated multi line comment in line 2")),
+            _ => panic!("Should have failed with an unterminated multi line comment error"),
+        }
     }
 
     #[test]
@@ -468,13 +503,12 @@ mod tests {
     
     #[test]
     fn handle_identifier() {
-        let source: &str = "this_is_a_var = 1;";
+        let source: &str = "t = 1;";
         let mut lexer: Lexer = Lexer::new(source);
 
         _ = lexer.scan_tokens().unwrap();
-
         assert_eq!(lexer.tokens.len(), 5);
-        println!("{:?}", lexer.tokens[0]);
+        
         assert_eq!(lexer.tokens[0].token_type, TokenType::Identifier);
         assert_eq!(lexer.tokens[1].token_type, TokenType::Equal);
         assert_eq!(lexer.tokens[2].token_type, TokenType::Number);

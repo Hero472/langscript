@@ -5,6 +5,7 @@ use std::process::exit;
 use crate::lexer::*;
 
 mod lexer;
+mod generate_ast;
 
 
 fn main() {
