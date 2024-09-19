@@ -267,7 +267,7 @@ impl Lexer {
         if let Some(&token_type) = self.keywords.get(lexeme) {
             self.add_token(token_type);
         } else {
-            self.add_token_lit(TokenType::Identifier,Some(LiteralValue::Identifier(lexeme.to_string())),lexeme.to_string());
+            self.add_token_lit(TokenType::Identifier,Some(LiteralValue::Identifier(lexeme.to_string())));
         }
     }
 
@@ -290,7 +290,7 @@ impl Lexer {
         let value: Result<f64, std::num::ParseFloatError> = substring.parse::<f64>();
 
         match value {
-            Ok(value) =>  self.add_token_lit(TokenType::Number,Some(LiteralValue::FloatValue(value)),value.to_string()),
+            Ok(value) =>  self.add_token_lit(TokenType::Number,Some(LiteralValue::FloatValue(value))),
             Err(_) => return Err(format!("Could not parse number {} in line {}", substring, self.line)),
         }
 
@@ -320,7 +320,7 @@ impl Lexer {
         let value: &str = &self.source[self.start + 1..self.current - 1];
 
         // save string with literal
-        self.add_token_lit(TokenType::String, Some(LiteralValue::StringValue(value.to_string())),value.to_string());
+        self.add_token_lit(TokenType::String, Some(LiteralValue::StringValue(value.to_string())));
     
         Ok(())
     }
@@ -346,11 +346,13 @@ impl Lexer {
 
     // add token to self.tokens with token_type and without literal
     fn add_token(&mut self, token_type: TokenType) {
-        self.add_token_lit(token_type, None, "".to_string())
+        self.add_token_lit(token_type, None)
     }
 
     // add token with token_type lexeme, literal and line
-    fn add_token_lit(&mut self, token_type: TokenType, literal: Option<LiteralValue>, text: String) {
+    fn add_token_lit(&mut self, token_type: TokenType, literal: Option<LiteralValue>) {
+
+        let text: String = self.source[self.start..self.current].to_string();
 
         self.tokens.push(Token {
             token_type: token_type,

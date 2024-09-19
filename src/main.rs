@@ -6,6 +6,7 @@ use crate::lexer::*;
 
 mod lexer;
 mod generate_ast;
+mod parser;
 
 
 fn main() {
