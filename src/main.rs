@@ -2,6 +2,8 @@ use std::{env, fs};
 use std::io::{self,BufRead, Write};
 use std::process::exit;
 
+use parser::Parser;
+
 use crate::lexer::*;
 
 mod lexer;
@@ -44,7 +46,7 @@ fn run_file(path: &str) -> Result<(), String>{
 fn run_prompt() -> Result<(), String> {
 
     loop {
-        println!(">");
+        print!(">");
         match io::stdout().flush() {
             Ok(_) => (),
             Err(_) => return Err("Could not flush stdout".to_string())
@@ -61,7 +63,7 @@ fn run_prompt() -> Result<(), String> {
             },
             Err(_) => return Err("Could not read line".to_string())
         }
-        println!(">{}",buffer);
+        print!("< {}",buffer);
 
         match run(&buffer) {
             Ok(_) => (),
@@ -74,15 +76,9 @@ fn run_prompt() -> Result<(), String> {
 
 fn run(contents: &str) -> Result<(),String> {
     let mut lexer: Lexer = Lexer::new(contents);
-    let tokens: Result<Vec<Token>, String> = lexer.scan_tokens();
-
-    if let Ok(tokens) = tokens {
-        for token in tokens {
-            println!("{:?}", token);
-        }
-    } else if let Err(e) = tokens {
-        println!("Error: {:?}", e);
-    }
+    let tokens: Vec<Token> = lexer.scan_tokens()?;
+    let mut parser: Parser = Parser::new(tokens); 
+    let expr: generate_ast::Expr = parser.parse()?;
 
     return Ok(());
 
