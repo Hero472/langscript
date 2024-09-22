@@ -1,4 +1,5 @@
 use crate::{generate_ast::{Expr, LiteralValueAst}, lexer::{Token, TokenType}, LiteralValue};
+use crate::stmt::Stmt;
 
 pub struct Parser {
     tokens: Vec<Token>,
@@ -14,13 +15,99 @@ impl Parser {
         }
     }
 
-    pub fn parse(&mut self) -> Result<Expr,String> {
-        self.expression()
+    pub fn parse(&mut self) -> Result<Vec<Stmt>, String> {
+        let mut stmts: Vec<Stmt> = vec![];
+        let mut errors: Vec<String> = vec![];
+
+        while !self.is_at_end() {
+            let stmt: Result<Stmt, String> = self.declaration();
+            match stmt {
+                Ok(s) => stmts.push(s),
+                Err(msg) => {
+                    errors.push(msg);
+                    self.synchronize();
+                },
+            }
+        }
+
+        if errors.len() == 0 {
+            Ok(stmts)
+        } else {
+            Err(errors.join("\n"))
+        }
+    }
+
+    fn declaration(&mut self) -> Result<Stmt, String> {
+        if self.match_token(&TokenType::Let) {
+            
+            match self.var_declaration() {
+                Ok(stmt) => Ok(stmt),
+                Err(msg) => Err(msg)
+            }
+        } else {
+            self.statement()
+        }
+    }
+
+    fn var_declaration(&mut self) -> Result<Stmt, String> {
+        let token: Token = self.consume(TokenType::Identifier, "Expected variable name")?;
+
+        let initializer; 
+        if self.match_token(&TokenType::Equal) {
+            initializer = self.expression()?;
+        } else {
+            initializer = Expr::Literal { value: LiteralValueAst::Null }
+        }
+        self.consume(TokenType::Semicolon, "Expected ';' after variable declaration");
+        Ok(Stmt::Let { name: token, initializer: initializer })
+    } 
+
+    fn statement(&mut self) -> Result<Stmt, String> {
+        if self.match_token(&TokenType::Print) {
+            self.print_statement()
+        } else {
+            self.expression_statement()
+        }
+
+    }
+
+    fn print_statement(&mut self) -> Result<Stmt, String> {
+        self.consume(TokenType::LeftParen, "Expect '(' after 'print'.")?;
+        let value: Expr = self.expression()?;
+        self.consume(TokenType::RightParen, "Expect ')' after the expression.")?;
+        self.consume(TokenType::Semicolon, "Expected ';' after statement")?;
+        return Ok(Stmt::Print { expression: value });
+    }
+
+    fn expression_statement(&mut self) -> Result<Stmt, String> {
+        let expr: Expr = self.expression()?;
+        self.consume(TokenType::Semicolon, "Expected ';' after statement");
+        return Ok(Stmt::Expression { expression: expr })
     }
 
     // checks if there is an equality
     fn expression(&mut self) -> Result<Expr,String> {
-        self.equality()
+        self.ternary()
+    }
+
+    // you can do nest ternary expression...
+    fn ternary(&mut self) -> Result<Expr,String> {
+        let condition: Expr = self.equality()?;
+
+        if self.match_token(&TokenType::QuestionMark) {
+            let expr_true: Expr = self.expression()?;
+            let _ = self.consume(TokenType::Colon, "Expected ':' after true expression");
+            let expr_false: Expr = self.expression()?;
+
+            return Ok(Expr::Ternary {
+                condition: Box::new(condition),
+                expr_true: Box::new(expr_true),
+                expr_false: Box::new(expr_false),
+            });
+        }
+
+        Ok(condition)
+
     }
 
     fn equality(&mut self) -> Result<Expr,String> {
@@ -106,18 +193,23 @@ impl Parser {
                 self.advance();
                 result = Expr::Literal { value: LiteralValueAst::from_token(token) }
             },
+            TokenType::Identifier => {
+                self.advance();
+                result = Expr::Variable { name: self.previous() }
+            }
             _ => return Err("Expected expression".to_string())
         }
 
         Ok(result)
     }
 
-    fn consume(&mut self, token_type: TokenType, msg: &str) -> Result<(), String>{
+    fn consume(&mut self, token_type: TokenType, msg: &str) -> Result<Token, String>{
         let token: Token = self.peek();
         if token.token_type == token_type {
             self.advance();
-            Ok(())
+            Ok(token)
         } else {
+            println!("Missing token {}", token_type);
             Err(msg.to_string())
         }
     }
@@ -186,25 +278,28 @@ impl Parser {
 #[cfg(test)]
 mod tests {
 
-    use crate::{Lexer, LiteralValue};
+    use crate::{lexer, Lexer, LiteralValue};
 
     use super::*;
 
+    fn stmt_vec_to_string(stmts: &Vec<Stmt>) -> String {
+        stmts
+            .iter()
+            .map(|stmt| stmt.to_string())
+            .collect::<Vec<String>>()
+            .join("\n")
+    }
+
     #[test]
     fn test_addition_parser() {
-        let one: Token = Token { token_type: TokenType::Number, lexeme: "1".to_string(), literal: Some(LiteralValue::IntValue(1)), line_number: 1 };
-        let plus: Token = Token { token_type: TokenType::Plus, lexeme: "+".to_string(), literal: None, line_number: 1 };
-        let two: Token = Token { token_type: TokenType::Number, lexeme: "2".to_string(), literal: Some(LiteralValue::IntValue(2)), line_number: 1 };
-        let semi_colon: Token = Token { token_type: TokenType::Semicolon, lexeme: ";".to_string(), literal: None, line_number: 1 };
-
-        // 1+2;
-
-        let tokens: Vec<Token> = vec![one, plus, two, semi_colon];
+        let source: &str = "1 + 2;";
+        let mut lexer: Lexer = Lexer::new(source);
+        let tokens: Vec<Token> = lexer.scan_tokens().unwrap();
         let mut parser: Parser = Parser::new(tokens);
 
-        let parsed_expr: Expr = parser.parse().unwrap();
+        let parsed_expr: Vec<Stmt> = parser.parse().unwrap();
 
-        let string_expr: String = parsed_expr.to_string();
+        let string_expr: String = stmt_vec_to_string(&parsed_expr);
 
         assert_eq!(string_expr,"1 + 2");
     }
@@ -214,11 +309,9 @@ mod tests {
         let source: &str = "3 + 5 == 7 - 5";
         let mut lexer: Lexer = Lexer::new(source);
         let tokens: Vec<Token> = lexer.scan_tokens().unwrap();
-        println!("{:?}",tokens[3]);
         let mut parser: Parser = Parser::new(tokens);
-        let parsed_expr: Expr = parser.parse().unwrap();
-        let string_expr: String = parsed_expr.to_string();
-
+        let parsed_expr: Vec<Stmt> = parser.parse().unwrap();
+        let string_expr: String = stmt_vec_to_string(&parsed_expr);
         assert_eq!(string_expr,"3 + 5 == 7 - 5")
     }
 
@@ -227,14 +320,23 @@ mod tests {
         let source: &str = "4 == (2 + 2)";
         let mut lexer: Lexer = Lexer::new(source);
         let tokens: Vec<Token> = lexer.scan_tokens().unwrap();
-        println!("{:?}",tokens[3]);
         let mut parser: Parser = Parser::new(tokens);
-        let parsed_expr: Expr = parser.parse().unwrap();
-        let string_expr: String = parsed_expr.to_string();
-
-        println!("{}",string_expr);
+        let parsed_expr: Vec<Stmt> = parser.parse().unwrap();
+        let string_expr: String = stmt_vec_to_string(&parsed_expr);
 
         assert_eq!(string_expr,"4 == (group 2 + 2)")
+    }
+
+    #[test]
+    fn test_ternary_expr() {
+        let source: &str = "1 ? 2 : 3";
+        let mut lexer: Lexer = Lexer::new(source);
+        let tokens: Vec<Token> = lexer.scan_tokens().unwrap();
+        let mut parser: Parser = Parser::new(tokens);
+        let parsed_expr: Vec<Stmt> = parser.parse().unwrap();
+        let string_expr: String = stmt_vec_to_string(&parsed_expr);
+
+        assert_eq!(string_expr,"1 ? 2 : 3")
     }
 
 }

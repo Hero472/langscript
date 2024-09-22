@@ -2,14 +2,18 @@ use std::{env, fs};
 use std::io::{self,BufRead, Write};
 use std::process::exit;
 
+use interpreter::Interpreter;
 use parser::Parser;
+use stmt::Stmt;
 
 use crate::lexer::*;
 
 mod lexer;
 mod generate_ast;
 mod parser;
-
+mod interpreter;
+mod stmt;
+mod environment;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -37,16 +41,17 @@ fn main() {
 }
 
 fn run_file(path: &str) -> Result<(), String>{
+    let mut interpreter: Interpreter = Interpreter::new();
     match fs::read_to_string(path) {
         Err(msg) => return Err(msg.to_string()),
-        Ok(contents) => return run(&contents),
+        Ok(contents) => return run(&mut interpreter, &contents),
     }
 }
 
 fn run_prompt() -> Result<(), String> {
-
+    let mut interpreter: Interpreter = Interpreter::new();
     loop {
-        print!(">");
+        print!("> ");
         match io::stdout().flush() {
             Ok(_) => (),
             Err(_) => return Err("Could not flush stdout".to_string())
@@ -59,13 +64,16 @@ fn run_prompt() -> Result<(), String> {
             Ok(n) => {
                 if n == 0 {
                     return Ok(())
+                } else if n == 1 {
+                    continue;
                 }
             },
             Err(_) => return Err("Could not read line".to_string())
         }
-        print!("< {}",buffer);
 
-        match run(&buffer) {
+        println!("< {}",buffer);
+
+        match run(&mut interpreter,&buffer) {
             Ok(_) => (),
             Err(msg) => println!("{}",msg)
         }
@@ -74,11 +82,13 @@ fn run_prompt() -> Result<(), String> {
 
 }
 
-fn run(contents: &str) -> Result<(),String> {
+fn run(interpreter: &mut Interpreter ,contents: &str) -> Result<(),String> {
     let mut lexer: Lexer = Lexer::new(contents);
     let tokens: Vec<Token> = lexer.scan_tokens()?;
     let mut parser: Parser = Parser::new(tokens); 
-    let expr: generate_ast::Expr = parser.parse()?;
+    let stmts: Vec<Stmt> = parser.parse()?;
+    
+    let _ = interpreter.interpreter(stmts);
 
     return Ok(());
 

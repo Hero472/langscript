@@ -4,6 +4,7 @@ use std::{collections::HashMap, vec};
 pub enum TokenType {
     LeftParen, RightParen, LeftBrace, RightBrace,
     Comma, Dot, Minus, Plus, Semicolon, Slash, Star,
+    QuestionMark, Colon,
 
     Bang, BangEqual,
     Equal, EqualEqual,
@@ -156,6 +157,8 @@ impl Lexer {
             '+' => self.add_token(TokenType::Plus),
             ';' => self.add_token(TokenType::Semicolon),
             '*' => self.add_token(TokenType::Star),
+            '?' => self.add_token(TokenType::QuestionMark),
+            ':' => self.add_token(TokenType::Colon),
             '!' | '=' | '<' | '>' => {
             let token: TokenType = match (c, self.char_match('=')) {
                 ('!', true) => TokenType::BangEqual,
@@ -315,7 +318,7 @@ impl Lexer {
     
         // consume '"'
         self.advance();
-    
+
         // value is the string without the ""
         let value: &str = &self.source[self.start + 1..self.current - 1];
 
@@ -520,13 +523,13 @@ mod tests {
 
     #[test]
     fn get_keywords() {
-        let source: &str = "let x = 1; \n while x { print 10 };";
+        let source: &str = "let x = 1; \n while ! true { print 10 };";
         let mut lexer: Lexer = Lexer::new(source);
     
         let _ = lexer.scan_tokens().unwrap();
     
         // Assert the number of tokens
-        assert_eq!(lexer.tokens.len(), 13);
+        assert_eq!(lexer.tokens.len(), 14);
 
         // Check the token types
         assert_eq!(lexer.tokens[0].token_type, TokenType::Let);         // "let"
@@ -535,13 +538,14 @@ mod tests {
         assert_eq!(lexer.tokens[3].token_type, TokenType::Number);      // "1"
         assert_eq!(lexer.tokens[4].token_type, TokenType::Semicolon);   // ";"
         assert_eq!(lexer.tokens[5].token_type, TokenType::While);       // "while"
-        assert_eq!(lexer.tokens[6].token_type, TokenType::Identifier);  // "x"
-        assert_eq!(lexer.tokens[7].token_type, TokenType::LeftBrace);   // "{"
-        assert_eq!(lexer.tokens[8].token_type, TokenType::Print);       // "print"
-        assert_eq!(lexer.tokens[9].token_type, TokenType::Number);      // "10"
-        assert_eq!(lexer.tokens[10].token_type, TokenType::RightBrace); // "}"
-        assert_eq!(lexer.tokens[11].token_type, TokenType::Semicolon); // ";"
-        assert_eq!(lexer.tokens[12].token_type, TokenType::EOF);
+        assert_eq!(lexer.tokens[6].token_type, TokenType::Bang);       // "!"
+        assert_eq!(lexer.tokens[7].token_type, TokenType::True);        // "true"
+        assert_eq!(lexer.tokens[8].token_type, TokenType::LeftBrace);   // "{"
+        assert_eq!(lexer.tokens[9].token_type, TokenType::Print);       // "print"
+        assert_eq!(lexer.tokens[10].token_type, TokenType::Number);      // "10"
+        assert_eq!(lexer.tokens[11].token_type, TokenType::RightBrace); // "}"
+        assert_eq!(lexer.tokens[12].token_type, TokenType::Semicolon); // ";"
+        assert_eq!(lexer.tokens[13].token_type, TokenType::EOF);
     }
 
 }

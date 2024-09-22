@@ -1,5 +1,7 @@
-use crate::lexer::{self, Token};
+use crate::{environment, lexer::{self, Token}, TokenType};
+use crate::environment::Enviroment;
 
+#[derive(Debug, Clone, PartialEq)]
 pub enum LiteralValueAst {
     Number(f32),
     StringValue(String),
@@ -35,26 +37,82 @@ impl LiteralValueAst {
         }
     }
 
+    pub fn to_type(&self) -> &str {
+        match self {
+            LiteralValueAst::Number(_) => "Number",
+            LiteralValueAst::StringValue(_) => "String",
+            LiteralValueAst::True => "Boolean",
+            LiteralValueAst::False => "Boolean",
+            LiteralValueAst::Null => "null"
+        }
+    }
+
     pub fn from_token(token : Token) -> Self {
         match token.token_type {
-            number => Self::Number(unwrap_as_f32(token.literal)),
-            string_value => Self::StringValue(unwrap_as_string(token.literal)),
+            TokenType::Number => Self::Number(unwrap_as_f32(token.literal)),
+            TokenType::String => Self::StringValue(unwrap_as_string(token.literal)),
 
-            r#true => Self::True,
-            r#false => Self::False,
-            null => Self::Null,
+            TokenType::True => Self::True,
+            TokenType::False => Self::False,
+            TokenType::Null => Self::Null,
 
             _ => panic!("Could not create LiteralValue from {:?}",token)
         }
     }
 
+    pub fn from_bool(boolean : bool) -> Self {
+        if boolean {
+            LiteralValueAst::True
+        } else {
+            LiteralValueAst::False
+        }
+    }
+
+    pub fn is_falsy(&self) -> LiteralValueAst {
+
+        match self {
+            Self::Number(x) => {
+                if *x == 0.0 {
+                    Self::True
+                } else {
+                    Self::False
+                }
+            },
+            Self::StringValue(s) => {
+                if s.len() == 0 {
+                    Self::True
+                } else {
+                    Self::False
+                }
+            },
+            Self::True => Self::False,
+            Self::False => Self::True,
+            Self::Null => Self::True,
+        }
+
+    }
+
+    fn is_false(&self) -> bool {
+        match self {
+            Self::Number(x) => *x == 0.0,
+            Self::StringValue(s) => s.is_empty(),
+            Self::True => false,
+            Self::False => true,
+            Self::Null => true,
+        }
+    }
+
 }
 
+#[derive(Debug)]
 pub enum Expr {
     Binary { left: Box<Expr>, operator: Token, right: Box<Expr>},
     Grouping { expression: Box<Expr> },
     Literal { value: LiteralValueAst },
-    Unary { operator: Token, value: Box<Expr> }
+    Unary { operator: Token, value: Box<Expr> },
+    Ternary { condition: Box<Expr>, expr_true: Box<Expr>, expr_false: Box<Expr> },
+
+    Variable { name: Token }
 }
 
 impl Expr {
@@ -75,8 +133,97 @@ impl Expr {
                 let right_str = value.to_string();
                 format!("({} {})", operator_str, right_str)
             }
+
+            Expr::Ternary { condition, expr_true, expr_false } => {
+                format!("{} ? {} : {}", condition.to_string(), expr_true.to_string(), expr_false.to_string())
+            }
+            Expr::Variable { name } => {format!("let {}", name.lexeme)}
         }
 
+    }
+
+    pub fn evaluate(&self, environment: &Enviroment) -> Result<LiteralValueAst, String> {
+        match self {
+            Expr::Literal { value } => Ok((*value).clone()),
+            Expr::Grouping { expression } => expression.evaluate(environment),
+            Expr::Unary { operator, value } => {
+
+                let value: LiteralValueAst = value.evaluate(environment)?;
+
+                match (operator.token_type, &value) {
+                    (TokenType::Minus, LiteralValueAst::Number(x)) => Ok(LiteralValueAst::Number(-x)),
+                    (TokenType::Minus, _) => return Err(format!("Minus not implemented for {:?}",value.to_type())),
+                    (TokenType::Bang, any) => Ok(any.is_falsy()),
+                    (ttype, _) => Err(format!("{} is not a valid unary operator", ttype)),
+                }
+            }
+            Expr::Binary { left, operator, right } => {
+                let left: LiteralValueAst = left.evaluate(environment)?;
+                let right: LiteralValueAst = right.evaluate(environment)?;
+
+                match (&left, operator.token_type, &right) {
+                    (LiteralValueAst::Number(x), TokenType::Plus, LiteralValueAst::Number(y)) => 
+                        Ok(LiteralValueAst::Number(x + y)),
+                    (LiteralValueAst::Number(x), TokenType::Minus, LiteralValueAst::Number(y)) => 
+                        Ok(LiteralValueAst::Number(x - y)),
+                    (LiteralValueAst::Number(x), TokenType::Star, LiteralValueAst::Number(y)) => 
+                        Ok(LiteralValueAst::Number(x * y)),
+                    (LiteralValueAst::Number(x), TokenType::Slash, LiteralValueAst::Number(y)) => 
+                        Ok(LiteralValueAst::Number(x / y)),
+            
+                    (LiteralValueAst::Number(x), TokenType::Greater, LiteralValueAst::Number(y)) => 
+                        Ok(LiteralValueAst::from_bool(x > y)),
+                    (LiteralValueAst::Number(x), TokenType::GreaterEqual, LiteralValueAst::Number(y)) => 
+                        Ok(LiteralValueAst::from_bool(x >= y)),
+                    (LiteralValueAst::Number(x), TokenType::Less, LiteralValueAst::Number(y)) => 
+                        Ok(LiteralValueAst::from_bool(x < y)),
+                    (LiteralValueAst::Number(x), TokenType::LessEqual, LiteralValueAst::Number(y)) => 
+                        Ok(LiteralValueAst::from_bool(x <= y)),
+            
+                    (LiteralValueAst::StringValue(_), op, LiteralValueAst::Number(_)) => 
+                        Err(format!("{} is not defined for string and number", op)),
+                    (LiteralValueAst::Number(_), op, LiteralValueAst::StringValue(_)) => 
+                    Err(format!("{} is not defined for string and number", op)),
+                    
+                    (LiteralValueAst::StringValue(s1), TokenType::Plus, LiteralValueAst::StringValue(s2)) =>
+                        Ok(LiteralValueAst::StringValue(format!("{}{}", s1, s2))),
+                    (LiteralValueAst::StringValue(s1), TokenType::EqualEqual, LiteralValueAst::StringValue(s2)) =>
+                        Ok(LiteralValueAst::from_bool(s1 == s2)),
+                    (LiteralValueAst::StringValue(s1), TokenType::Greater, LiteralValueAst::StringValue(s2)) =>
+                        Ok(LiteralValueAst::from_bool(s1 > s2)),
+                    (LiteralValueAst::StringValue(s1), TokenType::GreaterEqual, LiteralValueAst::StringValue(s2)) =>
+                        Ok(LiteralValueAst::from_bool(s1 >= s2)),
+                    (LiteralValueAst::StringValue(s1), TokenType::Less, LiteralValueAst::StringValue(s2)) =>
+                        Ok(LiteralValueAst::from_bool(s1 < s2)),
+                    (LiteralValueAst::StringValue(s1), TokenType::LessEqual, LiteralValueAst::StringValue(s2)) =>
+                        Ok(LiteralValueAst::from_bool(s1 <= s2)),
+                    
+                    (x, TokenType::EqualEqual, y) =>
+                        Ok(LiteralValueAst::from_bool(x == y)),
+                    (x, TokenType::BangEqual, y) =>
+                        Ok(LiteralValueAst::from_bool(x != y)),
+                    
+                    _ => Err("Case not supported".to_string()),
+                }
+
+            }
+            Expr::Ternary { condition, expr_true, expr_false } => {
+
+                let condition_value: LiteralValueAst = condition.evaluate(environment)?;
+
+                if !condition_value.is_false() {
+                    expr_true.evaluate(environment)
+                } else {
+                    expr_false.evaluate(environment)
+                }
+            },
+            Expr::Variable { name } => {
+                match environment.get(&name.lexeme) {
+                    Some(value) => Ok(value.clone()),
+                    None => Err(format!("Variable '{}' has not been declared", name.lexeme))
+                }
+            }
+        }
     }
 
     pub fn print(&self) {
@@ -103,4 +250,20 @@ mod tests {
 
         assert_eq!(result,"(- 123) * (group 45.67)");
     }
+
+    #[test]
+    fn pretty_ternary_expr() {
+        let condition: Box<Expr> = Box::new(Expr::Literal { value: LiteralValueAst::Number(1.0) });
+        let expr_true: Box<Expr> = Box::new(Expr::Literal { value: LiteralValueAst::Number(2.0) });
+        let expr_false: Box<Expr> = Box::new(Expr::Literal { value: LiteralValueAst::Number(3.0) });
+        
+        let ternary_expr: Expr = Expr::Ternary {
+            condition,
+            expr_true,
+            expr_false,
+        };
+
+        assert_eq!(format!("{}", ternary_expr.to_string()), "1 ? 2 : 3");
+    }
+
 }
