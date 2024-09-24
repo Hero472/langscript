@@ -1,4 +1,4 @@
-use crate::{generate_ast::{Expr, LiteralValueAst}, lexer::{Token, TokenType}, LiteralValue};
+use crate::{generate_ast::{self, Expr, LiteralValueAst}, lexer::{Token, TokenType}};
 use crate::stmt::Stmt;
 
 pub struct Parser {
@@ -58,17 +58,32 @@ impl Parser {
         } else {
             initializer = Expr::Literal { value: LiteralValueAst::Null }
         }
-        self.consume(TokenType::Semicolon, "Expected ';' after variable declaration");
+        let _ = self.consume(TokenType::Semicolon, "Expected ';' after variable declaration");
         Ok(Stmt::Let { name: token, initializer: initializer })
     } 
 
     fn statement(&mut self) -> Result<Stmt, String> {
         if self.match_token(&TokenType::Print) {
             self.print_statement()
+        } else if self.match_token(&TokenType::LeftBrace) {
+            self.block_statement()
         } else {
             self.expression_statement()
         }
 
+    }
+
+    fn block_statement(&mut self) -> Result<Stmt, String> {
+        let mut statements = vec![];
+
+        while !self.check(TokenType::RightBrace) && !self.is_at_end() {
+            let decl = self.declaration()?;
+            statements.push(decl);
+        }
+
+        let _ = self.consume(TokenType::RightBrace, "Expected '}' after block");
+
+        Ok(Stmt::Block { statements: statements })
     }
 
     fn print_statement(&mut self) -> Result<Stmt, String> {
@@ -81,13 +96,32 @@ impl Parser {
 
     fn expression_statement(&mut self) -> Result<Stmt, String> {
         let expr: Expr = self.expression()?;
-        self.consume(TokenType::Semicolon, "Expected ';' after statement");
+        let _ = self.consume(TokenType::Semicolon, "Expected ';' after statement");
         return Ok(Stmt::Expression { expression: expr })
     }
 
     // checks if there is an equality
     fn expression(&mut self) -> Result<Expr,String> {
-        self.ternary()
+        self.assignment()
+    }
+
+    fn assignment(&mut self) -> Result<Expr, String> {
+        let expr: Expr = self.ternary()?;
+
+        if self.match_token(&TokenType::Equal) {
+            let equals: Token = self.previous();
+            let value: Expr = self.assignment()?;
+
+            match expr {
+                Expr::Variable { name } => {
+                    Ok(Expr::Assign { name: name, value: Box::from(value) })
+                },
+                _ => Err("Invalid assignment target".to_string()),
+            }
+
+        } else {
+            Ok(expr)
+        }
     }
 
     // you can do nest ternary expression...
@@ -253,6 +287,10 @@ impl Parser {
                 false
             }
         }
+    }
+
+    fn check(&mut self, typ: TokenType) -> bool {
+        self.peek().token_type == typ
     }
 
     fn synchronize(&mut self) {

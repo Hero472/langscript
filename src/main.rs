@@ -18,18 +18,24 @@ mod environment;
 fn main() {
     let args: Vec<String> = env::args().collect();
 
-    if args.len() > 2 {
-        println!("Usage langscript");
-        exit(64)
-    } else if args.len() == 2 {
-         match run_file(&args[1]) {
+    if args.len() == 2 {
+        match run_file(&args[1]) {
             Ok(_) => exit(0),
             Err(msg) => {
                 println!("Error:\n{}",msg);
                 exit(1);
             }
-         }
-    } else {
+        }
+    } else if args.len() == 1 {
+        match run_prompt() {
+            Ok(_) => exit(0),
+            Err(msg) => {
+                println!("Error:\n{}",msg);
+                exit(1);
+            }
+        }
+    } 
+     else {
         match run_prompt() {
             Ok(_) => exit(0),
             Err(msg) => {
@@ -63,6 +69,7 @@ fn run_prompt() -> Result<(), String> {
         match handle.read_line(&mut buffer) {
             Ok(n) => {
                 if n == 0 {
+                    println!("");
                     return Ok(())
                 } else if n == 1 {
                     continue;
@@ -85,10 +92,19 @@ fn run_prompt() -> Result<(), String> {
 fn run(interpreter: &mut Interpreter ,contents: &str) -> Result<(),String> {
     let mut lexer: Lexer = Lexer::new(contents);
     let tokens: Vec<Token> = lexer.scan_tokens()?;
+
+    for token in tokens.clone() {
+        println!("{:?}", token);
+    }
+
     let mut parser: Parser = Parser::new(tokens); 
     let stmts: Vec<Stmt> = parser.parse()?;
+
+    for stmt in stmts.clone() {
+        println!("{:?}", stmt.to_string());
+    }
     
-    let _ = interpreter.interpreter(stmts);
+    let _ = interpreter.interpret(stmts);
 
     return Ok(());
 

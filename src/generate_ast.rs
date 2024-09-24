@@ -104,8 +104,13 @@ impl LiteralValueAst {
 
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Expr {
+    Assign {
+        name: Token,
+        value: Box<Expr>
+    },
+
     Binary { left: Box<Expr>, operator: Token, right: Box<Expr>},
     Grouping { expression: Box<Expr> },
     Literal { value: LiteralValueAst },
@@ -119,7 +124,7 @@ impl Expr {
     pub fn to_string(&self) -> String {
         
         match self {
-            
+            Expr::Assign { name, value } => format!("({name:?} = {}", value.to_string()),
             Expr::Binary { left, operator, right } => {
                 format!("{} {} {}", left.to_string(), operator.lexeme, right.to_string())
             },
@@ -137,13 +142,24 @@ impl Expr {
             Expr::Ternary { condition, expr_true, expr_false } => {
                 format!("{} ? {} : {}", condition.to_string(), expr_true.to_string(), expr_false.to_string())
             }
-            Expr::Variable { name } => {format!("let {}", name.lexeme)}
+            Expr::Variable { name } => {format!("let {} ", name.lexeme)}
         }
 
     }
 
-    pub fn evaluate(&self, environment: &Enviroment) -> Result<LiteralValueAst, String> {
+    pub fn evaluate(&self, environment: &mut Enviroment) -> Result<LiteralValueAst, String> {
         match self {
+            Expr::Assign { name, value } => {
+                let new_value: LiteralValueAst = (*value).evaluate(environment)?;
+                let assign_success: bool = environment.assign(&name.lexeme, new_value.clone());
+
+                if assign_success {
+                    Ok(new_value)
+                } else {
+                    Err(format!("Variable {:?} has not been declared", name.lexeme))
+                }
+
+            },
             Expr::Literal { value } => Ok((*value).clone()),
             Expr::Grouping { expression } => expression.evaluate(environment),
             Expr::Unary { operator, value } => {
