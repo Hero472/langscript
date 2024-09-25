@@ -1,5 +1,5 @@
 use crate::{environment, lexer::{self, Token}, TokenType};
-use crate::environment::Enviroment;
+use crate::environment::Environment;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum LiteralValueAst {
@@ -147,7 +147,7 @@ impl Expr {
 
     }
 
-    pub fn evaluate(&self, environment: &mut Enviroment) -> Result<LiteralValueAst, String> {
+    pub fn evaluate(&self, environment: &mut Environment) -> Result<LiteralValueAst, String> {
         match self {
             Expr::Assign { name, value } => {
                 let new_value: LiteralValueAst = (*value).evaluate(environment)?;

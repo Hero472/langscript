@@ -1,12 +1,12 @@
 use std::{collections::HashMap, rc::Rc};
 use crate::generate_ast::LiteralValueAst;
 
-pub struct Enviroment {
+pub struct Environment {
     values: HashMap<String, LiteralValueAst>,
-    pub enclosing: Option<Rc<Enviroment>>,
+    pub enclosing: Option<Rc<Environment>>,
 }
 
-impl Enviroment {
+impl Environment {
     
     pub fn new() -> Self {
         Self { 
@@ -54,7 +54,7 @@ mod tests {
 
     #[test]
     fn try_init() {
-        let enviroment = Enviroment::new();
+        let enviroment = Environment::new();
     }
 
 }

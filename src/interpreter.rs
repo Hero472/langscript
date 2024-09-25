@@ -1,15 +1,15 @@
 use std::{ops::Deref, rc::Rc};
 
-use crate::{environment::Enviroment, generate_ast::{LiteralValueAst}, stmt::Stmt};
+use crate::{environment::Environment, generate_ast::{LiteralValueAst}, stmt::Stmt};
 
 pub struct Interpreter {
-    environment: Rc<Enviroment>,
+    environment: Rc<Environment>,
 }
 
 impl Interpreter {
     pub fn new() -> Self {
         Self {
-            environment: Rc::new(Enviroment::new()),
+            environment: Rc::new(Environment::new()),
         }
     }
 
@@ -40,9 +40,9 @@ impl Interpreter {
                         .define(name.lexeme, value);
                 }
                 Stmt::Block { statements } => {
-                    let mut new_environment: Enviroment = Enviroment::new();
+                    let mut new_environment: Environment = Environment::new();
                     new_environment.enclosing = Some(self.environment.clone());
-                    let old_environment: Rc<Enviroment> = self.environment.clone();
+                    let old_environment: Rc<Environment> = self.environment.clone();
                     self.environment = Rc::new(new_environment);
                     let block_result: Result<(), String> = self.interpret(statements);
                     self.environment = old_environment;
