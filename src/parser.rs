@@ -52,7 +52,7 @@ impl Parser {
     fn var_declaration(&mut self) -> Result<Stmt, String> {
         let token: Token = self.consume(TokenType::Identifier, "Expected variable name")?;
 
-        let initializer; 
+        let initializer: Expr; 
         if self.match_token(&TokenType::Equal) {
             initializer = self.expression()?;
         } else {
@@ -74,10 +74,10 @@ impl Parser {
     }
 
     fn block_statement(&mut self) -> Result<Stmt, String> {
-        let mut statements = vec![];
+        let mut statements: Vec<Stmt> = vec![];
 
         while !self.check(TokenType::RightBrace) && !self.is_at_end() {
-            let decl = self.declaration()?;
+            let decl: Stmt = self.declaration()?;
             statements.push(decl);
         }
 
@@ -87,9 +87,7 @@ impl Parser {
     }
 
     fn print_statement(&mut self) -> Result<Stmt, String> {
-        self.consume(TokenType::LeftParen, "Expect '(' after 'print'.")?;
         let value: Expr = self.expression()?;
-        self.consume(TokenType::RightParen, "Expect ')' after the expression.")?;
         self.consume(TokenType::Semicolon, "Expected ';' after statement")?;
         return Ok(Stmt::Print { expression: value });
     }
@@ -148,11 +146,10 @@ impl Parser {
         
         let mut expr: Expr = self.comparison()?;
 
-
         while self.match_tokens(&[TokenType::BangEqual, TokenType::EqualEqual]) {
             
             let operator: Token = self.previous().clone();
-            let rhs: Expr = self.comparison()?;
+            let rhs: Expr = self.term()?;
 
             expr = Expr::Binary { left: Box::from(expr), operator: operator, right: Box::from(rhs) };
         }
@@ -241,9 +238,9 @@ impl Parser {
         let token: Token = self.peek();
         if token.token_type == token_type {
             self.advance();
+            let token: Token = self.previous();
             Ok(token)
         } else {
-            println!("Missing token {}", token_type);
             Err(msg.to_string())
         }
     }

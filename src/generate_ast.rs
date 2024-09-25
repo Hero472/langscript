@@ -142,7 +142,7 @@ impl Expr {
             Expr::Ternary { condition, expr_true, expr_false } => {
                 format!("{} ? {} : {}", condition.to_string(), expr_true.to_string(), expr_false.to_string())
             }
-            Expr::Variable { name } => {format!("let {} ", name.lexeme)}
+            Expr::Variable { name } => {format!("(let {} )", name.lexeme)}
         }
 
     }

@@ -18,33 +18,28 @@ mod environment;
 fn main() {
     let args: Vec<String> = env::args().collect();
 
-    if args.len() == 2 {
+    if args.len() > 2 {
+        println!("Usage: Langscript!");
+        exit(64);
+    } else if args.len() == 2 {
         match run_file(&args[1]) {
             Ok(_) => exit(0),
             Err(msg) => {
-                println!("Error:\n{}",msg);
+                println!("ERROR:\n{}", msg);
                 exit(1);
             }
         }
-    } else if args.len() == 1 {
+    } else {
         match run_prompt() {
             Ok(_) => exit(0),
             Err(msg) => {
-                println!("Error:\n{}",msg);
-                exit(1);
-            }
-        }
-    } 
-     else {
-        match run_prompt() {
-            Ok(_) => exit(0),
-            Err(msg) => {
-                println!("Error:\n{}",msg);
+                println!("ERROR\n{}", msg);
                 exit(1);
             }
         }
     }
 }
+
 
 fn run_file(path: &str) -> Result<(), String>{
     let mut interpreter: Interpreter = Interpreter::new();
@@ -57,7 +52,7 @@ fn run_file(path: &str) -> Result<(), String>{
 fn run_prompt() -> Result<(), String> {
     let mut interpreter: Interpreter = Interpreter::new();
     loop {
-        print!("> ");
+        print!(">> ");
         match io::stdout().flush() {
             Ok(_) => (),
             Err(_) => return Err("Could not flush stdout".to_string())
@@ -78,7 +73,7 @@ fn run_prompt() -> Result<(), String> {
             Err(_) => return Err("Could not read line".to_string())
         }
 
-        println!("< {}",buffer);
+        println!("<< {}",buffer);
 
         match run(&mut interpreter,&buffer) {
             Ok(_) => (),
@@ -93,16 +88,8 @@ fn run(interpreter: &mut Interpreter ,contents: &str) -> Result<(),String> {
     let mut lexer: Lexer = Lexer::new(contents);
     let tokens: Vec<Token> = lexer.scan_tokens()?;
 
-    for token in tokens.clone() {
-        println!("{:?}", token);
-    }
-
     let mut parser: Parser = Parser::new(tokens); 
     let stmts: Vec<Stmt> = parser.parse()?;
-
-    for stmt in stmts.clone() {
-        println!("{:?}", stmt.to_string());
-    }
     
     let _ = interpreter.interpret(stmts);
 
