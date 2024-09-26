@@ -67,11 +67,30 @@ impl Parser {
             self.print_statement()
         } else if self.match_token(&TokenType::LeftBrace) {
             self.block_statement()
+        } else if self.match_token(&TokenType::If) {
+            self.if_statement()
         } else {
             self.expression_statement()
         }
 
     }
+
+    fn if_statement(&mut self) -> Result<Stmt, String> {
+        self.consume(TokenType::LeftParen, "Expected '(' after 'if'")?;
+        let predicate: Expr = self.expression()?;
+        self.consume(TokenType::RightParen, "Expected ')' after if-predicate")?;
+
+        let then: Box<Stmt> = Box::new(self.statement()?);
+        let els: Option<Box<Stmt>> = if self.match_token(&TokenType::Else) {
+            let stm: Stmt = self.statement()?;
+            Some(Box::new(stm))
+        } else {
+            None
+        };
+
+        Ok(Stmt::IfStmt { predicate, then, els })
+    }
+
 
     fn block_statement(&mut self) -> Result<Stmt, String> {
         let mut statements: Vec<Stmt> = vec![];
@@ -210,29 +229,36 @@ impl Parser {
 
     }
 
-    fn primary(&mut self) -> Result<Expr,String> {
+    fn primary(&mut self) -> Result<Expr, String> {
         let token: Token = self.peek();
         let result: Expr;
         match token.token_type {
             TokenType::LeftParen => {
                 self.advance();
                 let expr: Expr = self.expression()?;
-                let _ = self.consume(TokenType::RightParen, "Expected ')'");
-                result = Expr::Grouping { expression: Box::from(expr) }
-            },
+                self.consume(TokenType::RightParen, "Expected ')'")?;
+                result = Expr::Grouping {
+                    expression: Box::from(expr),
+                };
+            }
             TokenType::False | TokenType::True | TokenType::Null | TokenType::Number | TokenType::String => {
                 self.advance();
-                result = Expr::Literal { value: LiteralValueAst::from_token(token) }
-            },
+                result = Expr::Literal {
+                    value: LiteralValueAst::from_token(token),
+                }
+            }
             TokenType::Identifier => {
                 self.advance();
-                result = Expr::Variable { name: self.previous() }
+                result = Expr::Variable {
+                    name: self.previous(),
+                };
             }
-            _ => return Err("Expected expression".to_string())
+            _ => return Err("Expected expression".to_string()),
         }
 
         Ok(result)
     }
+
 
     fn consume(&mut self, token_type: TokenType, msg: &str) -> Result<Token, String>{
         let token: Token = self.peek();

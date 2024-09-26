@@ -90,7 +90,7 @@ fn run(interpreter: &mut Interpreter ,contents: &str) -> Result<(),String> {
 
     let mut parser: Parser = Parser::new(tokens); 
     let stmts: Vec<Stmt> = parser.parse()?;
-    
+
     let _ = interpreter.interpret(stmts);
 
     return Ok(());

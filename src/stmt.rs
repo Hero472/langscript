@@ -1,3 +1,5 @@
+use std::fmt::format;
+
 use crate::{generate_ast::Expr, Token};
 
 #[derive(Debug, Clone)]
@@ -5,7 +7,8 @@ pub enum Stmt {
     Expression { expression: Expr },
     Print {expression: Expr},
     Let {name: Token, initializer: Expr },
-    Block { statements: Vec<Stmt>}
+    Block { statements: Vec<Stmt>},
+    IfStmt { predicate: Expr, then: Box<Stmt>, els: Option<Box<Stmt>>}
 }
 
 
@@ -19,7 +22,8 @@ impl Stmt {
             Stmt::Let { name, initializer } => format!("(let {} = {})", name.to_string(), initializer.to_string()),
             Stmt::Block { statements } => format!("[{:?}]", 
                 statements.into_iter().map(|stmt| stmt.to_string()).collect::<String>()
-            )
+            ),
+            Stmt::IfStmt { predicate, then, els } => format!("if {:?} {:?} else {:?}", predicate, then, els)
         }
     }
 }

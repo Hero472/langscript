@@ -92,6 +92,30 @@ impl LiteralValueAst {
 
     }
 
+    pub fn is_truthy(&self) -> LiteralValueAst {
+
+        match self {
+            Self::Number(x) => {
+                if *x == 0.0 {
+                    Self::False
+                } else {
+                    Self::True
+                }
+            },
+            Self::StringValue(s) => {
+                if s.len() == 0 {
+                    Self::False
+                } else {
+                    Self::True
+                }
+            },
+            Self::True => Self::True,
+            Self::False => Self::False,
+            Self::Null => Self::False,
+        }
+
+    }
+
     fn is_false(&self) -> bool {
         match self {
             Self::Number(x) => *x == 0.0,
@@ -110,11 +134,21 @@ pub enum Expr {
         name: Token,
         value: Box<Expr>
     },
-
-    Binary { left: Box<Expr>, operator: Token, right: Box<Expr>},
+    Logical {
+        left: Box<Expr>,
+        operator: Token,
+        right: Box<Expr>
+    },
+    Binary { left: Box<Expr>,
+        operator: Token,
+        right: Box<Expr>
+    },
     Grouping { expression: Box<Expr> },
     Literal { value: LiteralValueAst },
-    Unary { operator: Token, value: Box<Expr> },
+    Unary { 
+        operator: Token,
+        value: Box<Expr>
+    },
     Ternary { condition: Box<Expr>, expr_true: Box<Expr>, expr_false: Box<Expr> },
 
     Variable { name: Token }
@@ -125,6 +159,7 @@ impl Expr {
         
         match self {
             Expr::Assign { name, value } => format!("({name:?} = {}", value.to_string()),
+            Expr::Logical { left, operator, right } => format!("{} {} {}",left.to_string(), operator.to_string(), right.to_string()),
             Expr::Binary { left, operator, right } => {
                 format!("{} {} {}", left.to_string(), operator.lexeme, right.to_string())
             },
@@ -160,6 +195,7 @@ impl Expr {
                 }
 
             },
+            Expr::Logical { left, operator, right } => todo!(),
             Expr::Literal { value } => Ok((*value).clone()),
             Expr::Grouping { expression } => expression.evaluate(environment),
             Expr::Unary { operator, value } => {

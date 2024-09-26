@@ -12,6 +12,7 @@ impl Interpreter {
             environment: Rc::new(Environment::new()),
         }
     }
+    
 
     pub fn interpret(&mut self, stmts: Vec<Stmt>) -> Result<(), String> {
         for stmt in stmts {
@@ -25,18 +26,18 @@ impl Interpreter {
                 Stmt::Print { expression } => {
                     let value: LiteralValueAst = expression.evaluate(
                         Rc::get_mut(&mut self.environment)
-                            .expect("Could not get mutable ref to env"),
+                            .expect("Could not get mutable to environment"),
                     )?;
-                    println!("{value:?}");
+                    println!("{:?}",value.to_string());
                 }
                 Stmt::Let { name, initializer } => {
                     let value: LiteralValueAst = initializer.evaluate(
                         Rc::get_mut(&mut self.environment)
-                            .expect("Could not get mutable ref to env"),
+                            .expect("Could not get mutable to environment"),
                     )?;
 
                     Rc::get_mut(&mut self.environment)
-                        .expect("Could not get mutable ref to env")
+                        .expect("Could not get mutable to environment")
                         .define(name.lexeme, value);
                 }
                 Stmt::Block { statements } => {
@@ -48,6 +49,18 @@ impl Interpreter {
                     self.environment = old_environment;
 
                     block_result?;
+                },
+                Stmt::IfStmt { predicate, then, els } => {
+                    let truth_value = predicate.evaluate(
+                        Rc::get_mut(&mut self.environment)
+                            .expect("Could not get mutable ref to env"),
+                    )?;
+                    if truth_value.is_truthy() == LiteralValueAst::True {
+                        self.interpret(vec![*then])?;
+                    } else if let Some(els_stmt) = els {
+                        self.interpret(vec![*els_stmt])?;
+                    }
+
                 }
             };
         }
