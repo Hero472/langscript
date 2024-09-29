@@ -8,6 +8,7 @@ pub enum Stmt {
     Block { statements: Vec<Box<Stmt>>},
     IfStmt { predicate: Expr, then: Box<Stmt>, els: Option<Box<Stmt>>},
     WhileStmt {condition: Expr, body: Box<Stmt>},
+    BreakStmt,
 }
 
 
@@ -23,7 +24,8 @@ impl Stmt {
                 statements.into_iter().map(|stmt| stmt.to_string()).collect::<String>()
             ),
             Stmt::IfStmt { predicate, then, els } => format!("if {:?} {:?} else {:?}", predicate, then, els),
-            Stmt::WhileStmt { condition, body } => format!("while ({:?}) ({:?})", condition, body)
+            Stmt::WhileStmt { condition, body } => format!("while ({:?}) ({:?})", condition, body),
+            Stmt::BreakStmt => format!("break")
         }
     }
 }

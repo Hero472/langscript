@@ -17,6 +17,8 @@ pub enum TokenType {
     If, Null, Or, Print, Return, Super, This,
     Let, While,
 
+    Break, Continue,
+
     EOF
 }
 
@@ -67,6 +69,8 @@ pub fn get_keywords_hashmap() -> HashMap<&'static str, TokenType> {
         ("this", TokenType::This),
         ("let", TokenType::Let),
         ("while", TokenType::While),
+        ("break", TokenType::Break),
+        ("continue", TokenType::Continue) //TODO
     ])
 }
 

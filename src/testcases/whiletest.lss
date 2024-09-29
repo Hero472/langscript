@@ -1,7 +1,9 @@
-let a = 10;
-let b = -20;
-while ((a + b) ? a : b) {
+let a = 2;
+while (a) {
     print a;
     a = a - 1;
-    b = b + a;
+    if(a == 1) {
+        print "break!";
+        break;
+    }
 }

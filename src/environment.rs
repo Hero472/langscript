@@ -3,6 +3,7 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
+#[derive(Debug)]
 pub struct Environment {
     values: HashMap<String, LiteralValueAst>,
     pub enclosing: Option<Rc<RefCell<Environment>>>,
@@ -49,6 +50,6 @@ mod tests {
     use super::*;
     #[test]
     fn try_init() {
-        let _environment = Environment::new();
+        let _environment: Environment = Environment::new();
     }
 }

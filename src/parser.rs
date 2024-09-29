@@ -73,10 +73,17 @@ impl Parser {
             self.while_statement()
         } else if self.match_token(&TokenType::For) {
             self.for_statement()
+        } else if self.match_token(&TokenType::Break){
+            self.break_statement()
         } else {
             self.expression_statement()
         }
 
+    }
+
+    fn break_statement(&mut self) -> Result<Stmt, String> {
+        let _ = self.consume(TokenType::Semicolon, "expected ';' after 'break'");
+        Ok(Stmt::BreakStmt)
     }
 
     fn for_statement(&mut self) -> Result<Stmt, String> {
