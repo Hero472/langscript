@@ -1,15 +1,15 @@
-use std::{ops::Deref, rc::Rc};
+use std::{cell::RefCell, rc::Rc};
 
-use crate::{environment::Environment, generate_ast::{LiteralValueAst}, stmt::Stmt};
+use crate::{environment::Environment, generate_ast::LiteralValueAst, stmt::Stmt};
 
 pub struct Interpreter {
-    environment: Rc<Environment>,
+    environment: Rc<RefCell<Environment>>,
 }
 
 impl Interpreter {
     pub fn new() -> Self {
         Self {
-            environment: Rc::new(Environment::new()),
+            environment: Rc::new(RefCell::new(Environment::new())),
         }
     }
     
@@ -18,49 +18,46 @@ impl Interpreter {
         for stmt in stmts {
             match stmt {
                 Stmt::Expression { expression } => {
-                    expression.evaluate(
-                        Rc::get_mut(&mut self.environment)
-                            .expect("Could not get mutable reference to environment"),
-                    )?;
+                    expression.evaluate(&mut self.environment.clone())?;
                 }
                 Stmt::Print { expression } => {
-                    let value: LiteralValueAst = expression.evaluate(
-                        Rc::get_mut(&mut self.environment)
-                            .expect("Could not get mutable to environment"),
-                    )?;
-                    println!("{:?}",value.to_string());
+                    let value: LiteralValueAst = expression.evaluate(&mut self.environment.clone())?;
+                    println!("{}", value.to_string());
                 }
                 Stmt::Let { name, initializer } => {
-                    let value: LiteralValueAst = initializer.evaluate(
-                        Rc::get_mut(&mut self.environment)
-                            .expect("Could not get mutable to environment"),
-                    )?;
+                    let value: LiteralValueAst = initializer.evaluate(&mut self.environment.clone())?;
 
-                    Rc::get_mut(&mut self.environment)
-                        .expect("Could not get mutable to environment")
-                        .define(name.lexeme, value);
+                    self.environment.borrow_mut().define(name.lexeme.clone(), value);
                 }
                 Stmt::Block { statements } => {
                     let mut new_environment: Environment = Environment::new();
                     new_environment.enclosing = Some(self.environment.clone());
-                    let old_environment: Rc<Environment> = self.environment.clone();
-                    self.environment = Rc::new(new_environment);
-                    let block_result: Result<(), String> = self.interpret(statements);
+                    let old_environment: Rc<RefCell<Environment>> = self.environment.clone();
+                    self.environment = Rc::new(RefCell::new(new_environment));
+                    let block_result: Result<(), String> = self.interpret(
+                        statements.into_iter().map(|b| *b).collect::<Vec<Stmt>>()
+                    );
+
                     self.environment = old_environment;
 
                     block_result?;
                 },
                 Stmt::IfStmt { predicate, then, els } => {
-                    let truth_value = predicate.evaluate(
-                        Rc::get_mut(&mut self.environment)
-                            .expect("Could not get mutable ref to env"),
-                    )?;
+                    let truth_value: LiteralValueAst = predicate.evaluate(&mut self.environment.clone())?;
                     if truth_value.is_truthy() == LiteralValueAst::True {
                         self.interpret(vec![*then])?;
                     } else if let Some(els_stmt) = els {
                         self.interpret(vec![*els_stmt])?;
                     }
 
+                },
+                Stmt::WhileStmt { condition, body } => {
+                    let mut flag: LiteralValueAst = condition.evaluate(&mut self.environment.clone())?;
+
+                    while flag.is_truthy() == LiteralValueAst::True {
+                        self.interpret(vec![*body.clone()])?;
+                        flag = condition.evaluate(&mut self.environment.clone())?;
+                    }
                 }
             };
         }

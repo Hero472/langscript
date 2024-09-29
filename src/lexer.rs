@@ -22,7 +22,6 @@ pub enum TokenType {
 
 #[derive(Debug,Clone)]
 pub enum LiteralValue {
-    IntValue(i64),
     FloatValue(f64),
     StringValue(String),
     Identifier(String)
@@ -43,16 +42,6 @@ impl std::fmt::Display for TokenType {
 }
 
 impl Token {
-
-    pub fn new(token_type: TokenType, lexeme: String, literal: Option<LiteralValue>, line_number: usize) -> Self {
-        Self {
-            token_type,
-            lexeme,
-            literal,
-            line_number
-        }
-    }
-
     // not modify or delete
     pub fn to_string(self: &Self) -> String {
         format!("{}",self.lexeme)

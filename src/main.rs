@@ -8,6 +8,7 @@ use stmt::Stmt;
 
 use crate::lexer::*;
 
+mod tests;
 mod lexer;
 mod generate_ast;
 mod parser;

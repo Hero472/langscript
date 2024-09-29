@@ -1,0 +1,7 @@
+let a = 10;
+let b = -20;
+while ((a + b) ? a : b) {
+    print a;
+    a = a - 1;
+    b = b + a;
+}

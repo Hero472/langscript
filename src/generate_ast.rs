@@ -1,4 +1,6 @@
-use crate::{environment, lexer::{self, Token}, TokenType};
+use std::{cell::RefCell, rc::Rc};
+
+use crate::{lexer::{self, Token}, TokenType};
 use crate::environment::Environment;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -12,7 +14,6 @@ pub enum LiteralValueAst {
 
 fn unwrap_as_f32(literal: Option<lexer::LiteralValue>) -> f32 {
     match literal {
-        Some(lexer::LiteralValue::IntValue(x)) => x as f32,
         Some(lexer::LiteralValue::FloatValue(x)) => x as f32,
         _ => panic!("Could not unwrap as f32")
     }
@@ -21,7 +22,6 @@ fn unwrap_as_f32(literal: Option<lexer::LiteralValue>) -> f32 {
 fn unwrap_as_string(literal: Option<lexer::LiteralValue>) -> String {
     match literal {
         Some(lexer::LiteralValue::StringValue(s)) => s.clone(),
-        Some(lexer::LiteralValue::Identifier(s)) => s.clone(),
         _ => panic!("Could not unwrap as f32")
     }
 }
@@ -30,7 +30,7 @@ impl LiteralValueAst {
     pub fn to_string(&self) -> String {
         match self {
             LiteralValueAst::Number(x) => x.to_string(),
-            LiteralValueAst::StringValue(x) => x.clone(),
+            LiteralValueAst::StringValue(x) => format!("{}", x),
             LiteralValueAst::True => "true".to_string(),
             LiteralValueAst::False => "false".to_string(),
             LiteralValueAst::Null => "null".to_string()
@@ -182,11 +182,11 @@ impl Expr {
 
     }
 
-    pub fn evaluate(&self, environment: &mut Environment) -> Result<LiteralValueAst, String> {
+    pub fn evaluate(&self, environment: &mut Rc<RefCell<Environment>>) -> Result<LiteralValueAst, String> {
         match self {
             Expr::Assign { name, value } => {
                 let new_value: LiteralValueAst = (*value).evaluate(environment)?;
-                let assign_success: bool = environment.assign(&name.lexeme, new_value.clone());
+                let assign_success: bool = environment.borrow_mut().assign(&name.lexeme, new_value.clone());
 
                 if assign_success {
                     Ok(new_value)
@@ -195,7 +195,29 @@ impl Expr {
                 }
 
             },
-            Expr::Logical { left, operator, right } => todo!(),
+            Expr::Logical { left, operator, right } => {
+                match operator.token_type {
+                    TokenType::Or => {
+                        let lhs_value: LiteralValueAst = left.evaluate(environment)?;
+                        let lhs_true: LiteralValueAst = lhs_value.is_truthy();
+                        if lhs_true == LiteralValueAst::True {
+                            Ok(lhs_true)
+                        } else {
+                            right.evaluate(environment)
+                        }
+                    },
+                    TokenType::And => {
+                        let lhs_value: LiteralValueAst = left.evaluate(environment)?;
+                        let lhs_true: LiteralValueAst = lhs_value.is_truthy();
+                        if lhs_true == LiteralValueAst::False {
+                            Ok(lhs_value)
+                        } else {
+                            right.evaluate(environment) 
+                        }
+                    },
+                    ttype => Err(format!("Invalid token in logical expression: {}", ttype))
+                }
+            },
             Expr::Literal { value } => Ok((*value).clone()),
             Expr::Grouping { expression } => expression.evaluate(environment),
             Expr::Unary { operator, value } => {
@@ -270,7 +292,7 @@ impl Expr {
                 }
             },
             Expr::Variable { name } => {
-                match environment.get(&name.lexeme) {
+                match environment.borrow_mut().get(&name.lexeme) {
                     Some(value) => Ok(value.clone()),
                     None => Err(format!("Variable '{}' has not been declared", name.lexeme))
                 }
@@ -278,6 +300,7 @@ impl Expr {
         }
     }
 
+    #[allow(dead_code)]
     pub fn print(&self) {
         println!("{}",self.to_string());
     }
