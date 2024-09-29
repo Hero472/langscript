@@ -37,6 +37,22 @@ mod tests {
     }
 
     #[test]
+    fn interpret_while_break(){
+        
+        let output: std::process::Output = Command::new("cargo")
+            .arg("run")
+            .arg(r"src\tests\cases\whilebreak.lss")
+            .output()
+            .unwrap();
+
+        let lines: Vec<&str> = str::from_utf8(output.stdout.as_slice()).unwrap().split("\n").collect::<Vec<&str>>();
+
+        assert_eq!(lines.len(), 3);
+        assert_eq!(lines[0], "2");
+    }
+
+
+    #[test]
     fn interpret_math(){
         
         let output: std::process::Output = Command::new("cargo")
@@ -88,8 +104,5 @@ mod tests {
         for i in 0..fibo.len() {
             assert_eq!(lines[i], fibo[i].to_string())
         }
-
-
-
     }
 }

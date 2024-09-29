@@ -10,7 +10,13 @@
 * Supports `,` `.` `;` `*` `!` tokens.
 * Supports two char tokens like `!=`
 * Supports `//` line comments and `/* */` multi line comments
-* Supports String, Number and Identifiers
+* Supports String, Number and Identifiers and their operations
+* Supports `print`
+* Supports Expressions (Assign, Logical, Binary, Group, Literal, Unary, Ternary, Variable)
+* Supports scopes with different environment
+* Supports `while` and `for` expressions (`for` being a syntactic sugar of while)
+* Supports `break` statement
+* Supports interpreter
 ### Prerequisites
 
 Ensure you have Rust installed. You can install it from [rust-lang.org](https://www.rust-lang.org/)
@@ -38,17 +44,20 @@ cargo test
 
 
 ### Usage
-For now it doesn't has a very good way of using it more than using tests for testing source code, unless you use `cargo run` to run in the terminal (yet to implement more functionality)
+do `cargo run` to play with the interpreter and also now you can code, with the command `cargo run [path]` you can run any code you have in any extension.
 
 ## Roadmap
 
-- [ ]  Add parser.
-- [ ]  Add Interpreter.
-- [ ]  Add functionality with `let`
-- [ ]  Add functionality with `if` and `else`
-- [ ]  Add functionality with `while`
-- [ ]  Add functionality with `for`
+- [x]  Add parser.
+- [x]  Add Interpreter.
+- [x]  Add functionality with `let`
+- [x]  Add functionality with `if` and `else`
+- [x]  Add functionality with `while`
+- [x]  Add functionality with `for`
 - [ ]  Add functionality with `fun`
+- [ ]  Add functionality with `return`
+- [ ]  Add funciontality with `class`
+- [ ]  Add functionality with `methods`
 
 
 
