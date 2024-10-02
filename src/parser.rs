@@ -1,3 +1,5 @@
+use std::fmt::{format, Arguments};
+
 use crate::{generate_ast::{Expr, LiteralValueAst}, lexer::{Token, TokenType}};
 use crate::stmt::Stmt;
 
@@ -87,11 +89,9 @@ impl Parser {
     }
 
     fn for_statement(&mut self) -> Result<Stmt, String> {
-        // for v
-        //       ( SMTH ; SMTH ; SMTH )
+
         self.consume(TokenType::LeftParen, "Expected '(' after 'for'.")?;
 
-        // Consumes "SMTH ;"
         let initializer: Option<Stmt>;
         if self.match_token(&TokenType::Semicolon) {
             initializer = None;
@@ -103,7 +103,6 @@ impl Parser {
             initializer = Some(expr);
         }
 
-        // Consumes "SMTH? ;"
         let condition: Option<Expr>;
         if !self.check(TokenType::Semicolon) {
             let expr = self.expression()?;
@@ -336,9 +335,45 @@ impl Parser {
             Ok(Expr::Unary { operator: op, value: Box::from(rhs) })
 
         } else {
-            self.primary()
+            self.call()
         }
 
+    }
+
+    fn call(&mut self) -> Result<Expr, String> {
+        let mut expr: Expr = self.primary()?;
+
+        loop {
+            if self.match_token(&TokenType::LeftParen) {
+                expr = self.finish_call(expr)?;
+            } else {
+                break;
+            }
+        }
+        Ok(expr)
+    }
+
+    fn finish_call(&mut self, callee: Expr) -> Result<Expr, String> {
+        let mut args: Vec<Expr> = vec![];
+
+        if !self.check(TokenType::RightParen) {
+            loop {
+                let arg: Expr = self.expression()?;
+                args.push(arg);
+                
+                if args.len() >= 255 {
+                    let location: usize = self.peek().line_number;
+                    return Err(format!("Function cant have more than 255 arguments, in line {}", location))
+                }
+                
+                if !self.match_token(&TokenType::Comma){
+                    break;
+                }
+            }
+        }
+        let paren = self.consume(TokenType::RightParen, "Expected ')' after arguments")?;
+
+        Ok(Expr::Call { callee: Box::new(callee), paren: paren, arguments: args })
     }
 
     fn primary(&mut self) -> Result<Expr, String> {

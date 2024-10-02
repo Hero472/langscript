@@ -1,4 +1,4 @@
-use std::{cell::RefCell, rc::Rc};
+use std::{cell::RefCell, rc::Rc, time::SystemTime};
 
 use crate::{environment::Environment, generate_ast::LiteralValueAst, stmt::Stmt};
 
@@ -9,13 +9,27 @@ pub enum ControlFlow {
 }
 
 pub struct Interpreter {
+    //globals: Environment,
     environment: Rc<RefCell<Environment>>,
+}
+
+fn clock_impl(_args: &Vec<LiteralValueAst>) -> LiteralValueAst {
+    let now = std::time::SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).expect("Could not get system time").as_millis();
+
+    LiteralValueAst::StringValue(format!("{}", now))
 }
 
 impl Interpreter {
     pub fn new() -> Self {
+        let mut globals = Environment::new();
+        globals.define("clock".to_string(), LiteralValueAst::Callable { 
+            name: "clock".to_string(),
+            arity: 0,
+            fun: Rc::new(clock_impl) 
+        });
         Self {
-            environment: Rc::new(RefCell::new(Environment::new())),
+            //globals: Environment::new(),
+            environment: Rc::new(RefCell::new(globals)),
         }
     }
     

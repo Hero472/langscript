@@ -1,28 +1,75 @@
+use core::fmt;
 use std::{cell::RefCell, rc::Rc};
 
 use crate::{lexer::{self, Token}, TokenType};
 use crate::environment::Environment;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Clone)]
 pub enum LiteralValueAst {
-    Number(f32),
+    Number(f64),
     StringValue(String),
     True,
     False,
-    Null
+    Null,
+    Callable { 
+        name: String,
+        arity: usize,
+        fun: Rc<dyn Fn(&Vec<LiteralValueAst>) -> LiteralValueAst>
+    }
 }
 
-fn unwrap_as_f32(literal: Option<lexer::LiteralValue>) -> f32 {
+impl fmt::Debug for LiteralValueAst {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            LiteralValueAst::Number(n) => write!(f, "Number({})", n),
+            LiteralValueAst::StringValue(s) => write!(f, "StringValue(\"{}\")", s),
+            LiteralValueAst::True => write!(f, "True"),
+            LiteralValueAst::False => write!(f, "False"),
+            LiteralValueAst::Null => write!(f, "Null"),
+            LiteralValueAst::Callable { name, arity, .. } => {
+                write!(f, "Callable {{ name: \"{}\", arity: {} }}", name, arity)
+            }
+        }
+    }
+}
+
+impl PartialEq for LiteralValueAst {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (LiteralValueAst::Number(x), LiteralValueAst::Number(y)) => x == y,
+            (
+                LiteralValueAst::Callable {
+                    name,
+                    arity,
+                    fun: _,
+                },
+                LiteralValueAst::Callable {
+                    name: name2,
+                    arity: arity2,
+                    fun: _,
+                },
+            ) => name == name2 && arity == arity2,
+            (LiteralValueAst::StringValue(x), LiteralValueAst::StringValue(y)) => x == y,
+            (LiteralValueAst::True, LiteralValueAst::True) => true,
+            (LiteralValueAst::False, LiteralValueAst::False) => true,
+            (LiteralValueAst::Null, LiteralValueAst::Null) => true,
+            _ => false,
+        }
+    }
+}
+
+
+fn unwrap_as_f64(literal: Option<lexer::LiteralValue>) -> f64 {
     match literal {
-        Some(lexer::LiteralValue::FloatValue(x)) => x as f32,
-        _ => panic!("Could not unwrap as f32")
+        Some(lexer::LiteralValue::FloatValue(x)) => x as f64,
+        _ => panic!("Could not unwrap as f64")
     }
 }
 
 fn unwrap_as_string(literal: Option<lexer::LiteralValue>) -> String {
     match literal {
         Some(lexer::LiteralValue::StringValue(s)) => s.clone(),
-        _ => panic!("Could not unwrap as f32")
+        _ => panic!("Could not unwrap as string")
     }
 }
 
@@ -33,7 +80,8 @@ impl LiteralValueAst {
             LiteralValueAst::StringValue(x) => format!("{}", x),
             LiteralValueAst::True => "true".to_string(),
             LiteralValueAst::False => "false".to_string(),
-            LiteralValueAst::Null => "null".to_string()
+            LiteralValueAst::Null => "null".to_string(),
+            LiteralValueAst::Callable { name, arity, fun: _ } => format!("{}|{}", name, arity)
         }
     }
 
@@ -43,13 +91,14 @@ impl LiteralValueAst {
             LiteralValueAst::StringValue(_) => "String",
             LiteralValueAst::True => "Boolean",
             LiteralValueAst::False => "Boolean",
-            LiteralValueAst::Null => "null"
+            LiteralValueAst::Null => "null",
+            LiteralValueAst::Callable { name: _, arity: _, fun: _ } => "Callable"
         }
     }
 
     pub fn from_token(token : Token) -> Self {
         match token.token_type {
-            TokenType::Number => Self::Number(unwrap_as_f32(token.literal)),
+            TokenType::Number => Self::Number(unwrap_as_f64(token.literal)),
             TokenType::String => Self::StringValue(unwrap_as_string(token.literal)),
 
             TokenType::True => Self::True,
@@ -88,6 +137,7 @@ impl LiteralValueAst {
             Self::True => Self::False,
             Self::False => Self::True,
             Self::Null => Self::True,
+            Self::Callable {name: _, arity: _, fun: _ } => panic!("Can not use callable as a falsy value")
         }
 
     }
@@ -112,6 +162,7 @@ impl LiteralValueAst {
             Self::True => Self::True,
             Self::False => Self::False,
             Self::Null => Self::False,
+            Self::Callable {name: _, arity: _, fun: _ } => panic!("Can not use callable as a thuthy value")
         }
 
     }
@@ -123,12 +174,19 @@ impl LiteralValueAst {
             Self::True => false,
             Self::False => true,
             Self::Null => true,
+            Self::Callable {name: _, arity: _, fun: _ } => panic!("Can not use callable as a thuthy value")
         }
     }
 
 }
 
-#[derive(Debug, Clone)]
+impl std::fmt::Debug for Expr {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.to_string())
+    }
+}
+
+#[derive(Clone)]
 pub enum Expr {
     Assign {
         name: Token,
@@ -138,6 +196,11 @@ pub enum Expr {
         left: Box<Expr>,
         operator: Token,
         right: Box<Expr>
+    },
+    Call {
+        callee: Box<Expr>,
+        paren: Token,
+        arguments: Vec<Expr>
     },
     Binary { left: Box<Expr>,
         operator: Token,
@@ -163,7 +226,7 @@ impl Expr {
             Expr::Binary { left, operator, right } => {
                 format!("{} {} {}", left.to_string(), operator.lexeme, right.to_string())
             },
-
+            Expr::Call { callee, paren: _, arguments } => format!("({} {:?})", callee.to_string(), arguments),
             Expr::Grouping { expression } => format!("(group {})",expression.to_string()),
 
             Expr::Literal { value } => format!("{}",value.to_string()),
@@ -217,6 +280,32 @@ impl Expr {
                     },
                     ttype => Err(format!("Invalid token in logical expression: {}", ttype))
                 }
+            },
+            Expr::Call { callee, paren: _, arguments } => {
+                let callable = (*callee).evaluate(&mut environment.clone())?;
+                match callable {
+                    LiteralValueAst::Callable { name, arity, fun } => {
+                        // Do some checking (correct number of args?)
+                        if arguments.len() != arity {
+                            return Err(format!(
+                                "Callable {} expected {} arguments but got {}",
+                                name,
+                                arity,
+                                arguments.len()
+                            ));
+                        }
+                        // Evaluate arguments
+                        let mut arg_vals = vec![];
+                        for arg in arguments {
+                            let val = arg.evaluate(&mut environment.clone())?;
+                            arg_vals.push(val);
+                        }
+                        // Apply to arguments
+                        Ok(fun(&arg_vals))
+                    }
+                    other => Err(format!("{} is not callable", other.to_type())),
+                }
+
             },
             Expr::Literal { value } => Ok((*value).clone()),
             Expr::Grouping { expression } => expression.evaluate(environment),
