@@ -127,7 +127,7 @@ impl Interpreter {
                             ));
                         }
 
-                        let value;
+                        let value: LiteralValueAst;
                         match body[body.len() - 1].as_ref() {
                             Stmt::Expression { expression } => {
                                 value = expression.evaluate(clos_int.environment.clone()).unwrap();

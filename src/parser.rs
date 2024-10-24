@@ -89,7 +89,7 @@ impl Parser {
 
         let name: Token = self.consume(TokenType::Identifier, format!("Expected {kind:?} name").as_str())?;
 
-        self.consume(TokenType::LeftParen, format!("Expected '(' after {kind:?} name").as_str());
+        let _ = self.consume(TokenType::LeftParen, format!("Expected '(' after {kind:?} name").as_str());
 
         let mut parameters = vec![];
 
