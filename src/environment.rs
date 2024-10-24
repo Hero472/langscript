@@ -3,7 +3,7 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
-#[derive(Debug)]
+#[derive(Clone)]
 pub struct Environment {
     values: HashMap<String, LiteralValueAst>,
     pub enclosing: Option<Rc<RefCell<Environment>>>,

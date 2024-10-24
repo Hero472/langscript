@@ -1,11 +1,15 @@
-use std::fmt::{format, Arguments};
-
 use crate::{generate_ast::{Expr, LiteralValueAst}, lexer::{Token, TokenType}};
 use crate::stmt::Stmt;
 
 pub struct Parser {
     tokens: Vec<Token>,
     current: usize,
+}
+
+#[derive(Debug)]
+enum FunctionKind {
+    Function,
+    Method
 }
 
 impl Parser {
@@ -41,11 +45,9 @@ impl Parser {
 
     fn declaration(&mut self) -> Result<Stmt, String> {
         if self.match_token(&TokenType::Let) {
-            
-            match self.var_declaration() {
-                Ok(stmt) => Ok(stmt),
-                Err(msg) => Err(msg)
-            }
+            self.var_declaration()
+        } else if self.match_token(&TokenType::Fun) {
+            self.function(FunctionKind::Function)
         } else {
             self.statement()
         }
@@ -81,6 +83,40 @@ impl Parser {
             self.expression_statement()
         }
 
+    }
+
+    fn function(&mut self, kind: FunctionKind) -> Result<Stmt, String> {
+
+        let name: Token = self.consume(TokenType::Identifier, format!("Expected {kind:?} name").as_str())?;
+
+        self.consume(TokenType::LeftParen, format!("Expected '(' after {kind:?} name").as_str());
+
+        let mut parameters = vec![];
+
+        if !self.check(TokenType::RightParen){
+            loop {
+                if parameters.len() >= 255 {
+                    return Err(format!("More than 255 parameters in function {:?}", name))
+                }
+
+                let param = self.consume(TokenType::Identifier, "Expected parameter name")?;
+                parameters.push(param);
+
+                if !self.match_token(&TokenType::Comma) {
+                    break;
+                }
+            }
+        }
+        self.consume(TokenType::RightParen, "Expected ')' after parameters")?;
+
+        self.consume(TokenType::LeftBrace, &format!("Expected '{{' before {kind:?} body"))?;
+
+        let body: Vec<Box<Stmt>> = match self.block_statement()? {
+            Stmt::Block { statements } => statements,
+            _ => panic!("Block statement parsed something that wasnt a block")
+        };
+
+        Ok(Stmt::Function { name: name, params: parameters, body: body })
     }
 
     fn break_statement(&mut self) -> Result<Stmt, String> {

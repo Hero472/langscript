@@ -14,7 +14,7 @@ pub enum LiteralValueAst {
     Callable { 
         name: String,
         arity: usize,
-        fun: Rc<dyn Fn(&Vec<LiteralValueAst>) -> LiteralValueAst>
+        fun: Rc<dyn Fn(Rc<RefCell<Environment>>, &Vec<LiteralValueAst>) -> LiteralValueAst>
     }
 }
 
@@ -245,11 +245,13 @@ impl Expr {
 
     }
 
-    pub fn evaluate(&self, environment: &mut Rc<RefCell<Environment>>) -> Result<LiteralValueAst, String> {
+    pub fn evaluate(&self, environment: Rc<RefCell<Environment>>) -> Result<LiteralValueAst, String> {
         match self {
             Expr::Assign { name, value } => {
-                let new_value: LiteralValueAst = (*value).evaluate(environment)?;
-                let assign_success: bool = environment.borrow_mut().assign(&name.lexeme, new_value.clone());
+                let new_value: LiteralValueAst = (*value).evaluate(environment.clone())?;
+                let assign_success: bool = environment
+                    .borrow_mut()
+                    .assign(&name.lexeme, new_value.clone());
 
                 if assign_success {
                     Ok(new_value)
@@ -261,31 +263,31 @@ impl Expr {
             Expr::Logical { left, operator, right } => {
                 match operator.token_type {
                     TokenType::Or => {
-                        let lhs_value: LiteralValueAst = left.evaluate(environment)?;
+                        let lhs_value: LiteralValueAst = left.evaluate(environment.clone())?;
                         let lhs_true: LiteralValueAst = lhs_value.is_truthy();
                         if lhs_true == LiteralValueAst::True {
                             Ok(lhs_true)
                         } else {
-                            right.evaluate(environment)
+                            right.evaluate(environment.clone())
                         }
                     },
                     TokenType::And => {
-                        let lhs_value: LiteralValueAst = left.evaluate(environment)?;
+                        let lhs_value: LiteralValueAst = left.evaluate(environment.clone())?;
                         let lhs_true: LiteralValueAst = lhs_value.is_truthy();
                         if lhs_true == LiteralValueAst::False {
                             Ok(lhs_value)
                         } else {
-                            right.evaluate(environment) 
+                            right.evaluate(environment.clone()) 
                         }
                     },
                     ttype => Err(format!("Invalid token in logical expression: {}", ttype))
                 }
             },
             Expr::Call { callee, paren: _, arguments } => {
-                let callable = (*callee).evaluate(&mut environment.clone())?;
+                let callable: LiteralValueAst = (*callee).evaluate(environment.clone())?;
                 match callable {
                     LiteralValueAst::Callable { name, arity, fun } => {
-                        // Do some checking (correct number of args?)
+
                         if arguments.len() != arity {
                             return Err(format!(
                                 "Callable {} expected {} arguments but got {}",
@@ -294,14 +296,14 @@ impl Expr {
                                 arguments.len()
                             ));
                         }
-                        // Evaluate arguments
-                        let mut arg_vals = vec![];
+                        let mut arg_vals: Vec<LiteralValueAst> = vec![];
+                        
                         for arg in arguments {
-                            let val = arg.evaluate(&mut environment.clone())?;
+                            let val: LiteralValueAst = arg.evaluate(environment.clone())?;
                             arg_vals.push(val);
                         }
-                        // Apply to arguments
-                        Ok(fun(&arg_vals))
+
+                        Ok(fun(environment.clone(), &arg_vals))
                     }
                     other => Err(format!("{} is not callable", other.to_type())),
                 }
@@ -321,8 +323,8 @@ impl Expr {
                 }
             }
             Expr::Binary { left, operator, right } => {
-                let left: LiteralValueAst = left.evaluate(environment)?;
-                let right: LiteralValueAst = right.evaluate(environment)?;
+                let left: LiteralValueAst = left.evaluate(environment.clone())?;
+                let right: LiteralValueAst = right.evaluate(environment.clone())?;
 
                 match (&left, operator.token_type, &right) {
                     (LiteralValueAst::Number(x), TokenType::Plus, LiteralValueAst::Number(y)) => 
@@ -372,7 +374,7 @@ impl Expr {
             }
             Expr::Ternary { condition, expr_true, expr_false } => {
 
-                let condition_value: LiteralValueAst = condition.evaluate(environment)?;
+                let condition_value: LiteralValueAst = condition.evaluate(environment.clone())?;
 
                 if !condition_value.is_false() {
                     expr_true.evaluate(environment)
