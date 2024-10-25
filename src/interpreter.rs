@@ -5,11 +5,12 @@ use crate::{environment::Environment, generate_ast::LiteralValueAst, stmt::Stmt,
 #[derive(Debug, Clone)]
 pub enum ControlFlow {
     Break,
-    None,
+    None
 }
 
 pub struct Interpreter {
-    environment: Rc<RefCell<Environment>>,
+    specials: Rc<RefCell<Environment>>,
+    environment: Rc<RefCell<Environment>>
 }
 
 fn clock_impl(_env: Rc<RefCell<Environment>>, _args: &Vec<LiteralValueAst>) -> LiteralValueAst {
@@ -35,7 +36,8 @@ impl Interpreter {
         );
 
         Self {
-            environment: Rc::new(RefCell::new(globals)),
+            specials: Rc::new(RefCell::new(Environment::new())),
+            environment: Rc::new(RefCell::new(globals))
         }
     }
     
@@ -43,7 +45,10 @@ impl Interpreter {
         let environment: Rc<RefCell<Environment>> = Rc::new(RefCell::new(Environment::new()));
         environment.borrow_mut().enclosing = Some(parent);
 
-        Self { environment }
+        Self { 
+            specials: Rc::new(RefCell::new(Environment::new())),
+            environment 
+        }
     }
 
 
@@ -108,7 +113,7 @@ impl Interpreter {
 
                     let params: Vec<Token> = params.iter().map(|t| (*t).clone()).collect();
                     let body: Vec<Box<Stmt>> = body.iter().map(|b| (*b).clone()).collect();
-                    let name_clone = name.lexeme.clone();
+                    let name_clone: String = name.lexeme.clone();
 
                     let fun_impl = move |parent_env, args: &Vec<LiteralValueAst>| {
                         let mut clos_int: Interpreter = Interpreter::for_closure(parent_env);
@@ -120,22 +125,18 @@ impl Interpreter {
                                 .define(params[i].lexeme.clone(), (*arg).clone());
                         }
 
-                        for i in 0..(body.len() - 1) {
+                        for i in 0..(body.len()) {
                             clos_int.interpret(vec![body[i].as_ref()]).expect(&format!(
                                 "Evaluating failed inside {}",
                                 name_clone
                             ));
-                        }
 
-                        let value: LiteralValueAst;
-                        match body[body.len() - 1].as_ref() {
-                            Stmt::Expression { expression } => {
-                                value = expression.evaluate(clos_int.environment.clone()).unwrap();
+                            if let Some(value) = clos_int.specials.borrow().get("return") {
+                                return value
                             }
-                            _ => todo!("Didnt get an expression"),
                         }
 
-                        value
+                        LiteralValueAst::Null
                     };
 
                     let callable: LiteralValueAst = LiteralValueAst::Callable {
@@ -147,6 +148,19 @@ impl Interpreter {
                     self.environment
                         .borrow_mut()
                         .define(name.lexeme.clone(), callable);
+
+
+                    Ok(ControlFlow::None)
+                },
+                Stmt::ReturnStmt { keyword: _, value } => {
+
+                    let eval_val: LiteralValueAst ;
+                    if let Some(value) = value {
+                        eval_val = value.evaluate(self.environment.clone())?;
+                    } else {
+                        eval_val = LiteralValueAst::Null;
+                    }
+                    self.specials.borrow_mut().define_top_level("return".to_string(), eval_val);
                     Ok(ControlFlow::None)
                 }
             };

@@ -1,0 +1,9 @@
+fun foo(x) {
+    return x + z;
+}
+
+let z = 2;
+
+let r = foo(4);
+
+print r;

@@ -1,4 +1,5 @@
 use crate::generate_ast::LiteralValueAst;
+use crate::LiteralValue;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -15,6 +16,15 @@ impl Environment {
             values: HashMap::new(),
             enclosing: None,
         }
+    }
+
+    pub fn define_top_level(&mut self, name: String, value: LiteralValueAst) {
+
+        match &self.enclosing {
+            None => self.define(name, value),
+            Some(env) => env.borrow_mut().define_top_level(name, value),
+        }
+
     }
 
     pub fn define(&mut self, name: String, value: LiteralValueAst) {

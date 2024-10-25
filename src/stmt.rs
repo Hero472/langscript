@@ -13,6 +13,10 @@ pub enum Stmt {
         name: Token,
         params: Vec<Token>,
         body: Vec<Box<Stmt>>,
+    },
+    ReturnStmt {
+        keyword: Token,
+        value: Option<Expr>
     }
 }
 
@@ -31,7 +35,8 @@ impl Stmt {
             Stmt::IfStmt { predicate, then, els } => format!("if {:?} {:?} else {:?}", predicate, then, els),
             Stmt::WhileStmt { condition, body } => format!("while ({:?}) ({:?})", condition, body),
             Stmt::BreakStmt => format!("break"),
-            Stmt::Function { name, params, body } => format!("{:?} | {:?} | {:?}", name, params, body)
+            Stmt::Function { name, params, body } => format!("{:?} | {:?} | {:?}", name, params, body),
+            Stmt::ReturnStmt { value, keyword } => todo!()
         }
     }
 }
