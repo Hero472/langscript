@@ -124,6 +124,7 @@ impl Parser {
                 }
             }
         }
+
         self.consume(TokenType::RightParen, "Expected ')' after parameters")?;
 
         self.consume(TokenType::LeftBrace, &format!("Expected '{{' before {kind:?} body"))?;
@@ -265,11 +266,46 @@ impl Parser {
         self.assignment()
     }
 
+    fn function_expression(&mut self) -> Result<Expr, String> {
+
+        let paren: Token = self.consume(TokenType::LeftParen, "Expected '(' after anonymous function")?;
+
+        let mut parameters: Vec<Token> = vec![];
+        if !self.check(TokenType::RightParen){
+            loop {
+                if parameters.len() >= 255 {
+                    return Err(format!("More than 255 parameters in anonymous function"))
+                }
+
+                let param = self.consume(TokenType::Identifier, "Expected parameter name")?;
+                parameters.push(param);
+
+                if !self.match_token(&TokenType::Comma) {
+                    break;
+                }
+            }
+        }
+
+        self.consume(TokenType::RightParen, "Expected ')' after anonymous function")?;
+        self.consume(TokenType::LeftBrace, "Expected '{' after anonymous function")?;
+
+        let body: Vec<Box<Stmt>> = match self.block_statement()? {
+            Stmt::Block { statements } => {statements},
+            _ => panic!("Block statement parsed something that was not a block")
+        };
+
+        Ok(Expr::AnonFunction { 
+            paren,
+            arguments: parameters,
+            body
+        })
+    }
+
     fn assignment(&mut self) -> Result<Expr, String> {
         let expr: Expr = self.or()?;
 
         if self.match_token(&TokenType::Equal) {
-            let value: Expr = self.assignment()?;
+            let value: Expr = self.expression()?;
 
             match expr {
                 Expr::Variable { name } => {
@@ -452,8 +488,12 @@ impl Parser {
                 result = Expr::Variable {
                     name: self.previous(),
                 };
+            },
+            TokenType::Fun => {
+                self.advance();
+                result = self.function_expression()?;
             }
-            ttype => return Err(format!("Expected expression, last token read was {}", ttype)),
+            ttype => return Err(format!("Expected expression, last token read was {} in line {}", ttype, token.line_number)),
         }
 
         Ok(result)

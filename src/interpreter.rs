@@ -9,12 +9,12 @@ pub enum ControlFlow {
 }
 
 pub struct Interpreter {
-    specials: Rc<RefCell<Environment>>,
-    environment: Rc<RefCell<Environment>>
+    pub specials: Rc<RefCell<Environment>>,
+    pub environment: Rc<RefCell<Environment>>
 }
 
 fn clock_impl(_env: Rc<RefCell<Environment>>, _args: &Vec<LiteralValueAst>) -> LiteralValueAst {
-    let now = std::time::SystemTime::now()
+    let now: u128 = std::time::SystemTime::now()
         .duration_since(std::time::SystemTime::UNIX_EPOCH)
         .expect("Could not get system time")
         .as_millis();
@@ -41,13 +41,22 @@ impl Interpreter {
         }
     }
     
-    fn for_closure(parent: Rc<RefCell<Environment>>) -> Self {
+    pub fn for_closure(parent: Rc<RefCell<Environment>>) -> Self {
         let environment: Rc<RefCell<Environment>> = Rc::new(RefCell::new(Environment::new()));
         environment.borrow_mut().enclosing = Some(parent);
 
         Self { 
             specials: Rc::new(RefCell::new(Environment::new())),
             environment 
+        }
+    }
+
+    pub fn for_anon(parent: Rc<RefCell<Environment>>) -> Self {
+        let mut env: Environment = Environment::new();
+        env.enclosing = Some(parent.clone());
+        Self {
+            specials: Rc::new(RefCell::new(Environment::new())),
+            environment: Rc::new(RefCell::new(env))
         }
     }
 
@@ -109,14 +118,15 @@ impl Interpreter {
                     Ok(ControlFlow::Break)
                 }
                 Stmt::Function { name, params, body } => {
-                    let arity = params.len();
+                    let arity: usize = params.len();
 
                     let params: Vec<Token> = params.iter().map(|t| (*t).clone()).collect();
                     let body: Vec<Box<Stmt>> = body.iter().map(|b| (*b).clone()).collect();
                     let name_clone: String = name.lexeme.clone();
 
-                    let fun_impl = move |parent_env, args: &Vec<LiteralValueAst>| {
-                        let mut clos_int: Interpreter = Interpreter::for_closure(parent_env);
+                    let parent_env: Rc<RefCell<Environment>> = self.environment.clone();
+                    let fun_impl = move |_env: Rc<RefCell<Environment>>, args: &Vec<LiteralValueAst>| {
+                        let mut clos_int: Interpreter = Interpreter::for_closure(parent_env.clone());
 
                         for (i, arg) in args.iter().enumerate() {
                             clos_int

@@ -36,7 +36,7 @@ impl Stmt {
             Stmt::WhileStmt { condition, body } => format!("while ({:?}) ({:?})", condition, body),
             Stmt::BreakStmt => format!("break"),
             Stmt::Function { name, params, body } => format!("{:?} | {:?} | {:?}", name, params, body),
-            Stmt::ReturnStmt { value, keyword } => todo!()
+            Stmt::ReturnStmt { value , keyword: _ } => format!("returning: {:?}", value)
         }
     }
 }

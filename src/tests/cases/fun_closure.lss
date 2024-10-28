@@ -1,0 +1,16 @@
+fun make_counter() {
+    let i = 0;
+    fun count() {
+        i = i + 1;
+        print i;
+    }
+    return count;
+}
+
+let counter1 = make_counter();
+let counter2 = make_counter();
+
+counter1();
+counter1();
+counter2();
+counter2();

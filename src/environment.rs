@@ -1,5 +1,4 @@
 use crate::generate_ast::LiteralValueAst;
-use crate::LiteralValue;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;

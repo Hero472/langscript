@@ -1,7 +1,7 @@
 use core::fmt;
 use std::{cell::RefCell, rc::Rc};
 
-use crate::{lexer::{self, Token}, TokenType};
+use crate::{interpreter::Interpreter, lexer::{self, Token}, stmt::Stmt, TokenType};
 use crate::environment::Environment;
 
 #[derive(Clone)]
@@ -188,6 +188,11 @@ impl std::fmt::Debug for Expr {
 
 #[derive(Clone)]
 pub enum Expr {
+    AnonFunction {
+        paren: Token,
+        arguments: Vec<Token>,
+        body: Vec<Box<Stmt>>
+    },
     Assign {
         name: Token,
         value: Box<Expr>
@@ -221,6 +226,7 @@ impl Expr {
     pub fn to_string(&self) -> String {
         
         match self {
+            Expr::AnonFunction { paren: _, arguments, body: _ } => format!("anon {}", arguments.len()),
             Expr::Assign { name, value } => format!("({name:?} = {}", value.to_string()),
             Expr::Logical { left, operator, right } => format!("{} {} {}",left.to_string(), operator.to_string(), right.to_string()),
             Expr::Binary { left, operator, right } => {
@@ -247,6 +253,45 @@ impl Expr {
 
     pub fn evaluate(&self, environment: Rc<RefCell<Environment>>) -> Result<LiteralValueAst, String> {
         match self {
+            Expr::AnonFunction { paren , arguments, body } => {
+                
+                let arity: usize = arguments.len();
+                let env: Rc<RefCell<Environment>> = environment.clone();
+                let arguments: Vec<Token> = arguments.iter().map(|t| (*t).clone()).collect();
+                let body: Vec<Box<Stmt>> = body.iter().map(|b| (*b).clone()).collect();
+                let paren: Token = paren.clone();
+
+                let fun_impl = move |_env: Rc<RefCell<Environment>>, args: &Vec<LiteralValueAst>| {
+                    let mut anon_int: Interpreter = Interpreter::for_closure(env.clone());
+
+                    for (i, arg) in args.iter().enumerate() {
+                        anon_int
+                            .environment
+                            .borrow_mut()
+                            .define(arguments[i].lexeme.clone(), (*arg).clone());
+                    }
+
+                    for i in 0..(body.len()) {
+                        anon_int.interpret(vec![&body[i]])
+                            .expect(&format!(
+                            "Evaluating failed inside anonymous function at line {}",
+                            paren.line_number
+                        ));
+
+                        if let Some(value) = anon_int.specials.borrow().get("return") {
+                            return value
+                        }
+                    }
+
+                    LiteralValueAst::Null
+                };
+
+                Ok(LiteralValueAst::Callable { 
+                    name: "anon_function".to_string(),
+                    arity, 
+                    fun: Rc::new(fun_impl) 
+                })
+            },
             Expr::Assign { name, value } => {
                 let new_value: LiteralValueAst = (*value).evaluate(environment.clone())?;
                 let assign_success: bool = environment
