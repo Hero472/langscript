@@ -1,4 +1,4 @@
-
+--- TEST
 let a = 2;
 
 fun mod() {
@@ -8,3 +8,6 @@ fun mod() {
 mod();
 
 print a;
+
+--- EXPECTED
+3

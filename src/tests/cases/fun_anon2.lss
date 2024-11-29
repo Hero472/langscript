@@ -1,3 +1,4 @@
+--- TEST
 fun caller(fn) {
     fn();
 }
@@ -7,3 +8,6 @@ let a = 0;
 caller(fun () { a = a + 1; });
 
 print a;
+
+--- EXPECTED
+1

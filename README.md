@@ -4,19 +4,21 @@
 
 ### Lexer
 
-* tokenize from source code.
+* tokenize from concrete syntax.
 * Supports basic arithmetic operations: `+`, `-`, `*`, `>`, `<` and `/`.
 * Supports `()` `{}` paren and braces.
 * Supports `,` `.` `;` `*` `!` tokens.
 * Supports two char tokens like `!=`
-* Supports `//` line comments and `/* */` multi line comments
+* Supports `//` line comments
 * Supports String, Number and Identifiers and their operations
 * Supports `print`
 * Supports Expressions (Assign, Logical, Binary, Group, Literal, Unary, Ternary, Variable)
 * Supports scopes with different environment
-* Supports `while` and `for` expressions (`for` being a syntactic sugar of while)
+* Supports `while` and `for` expressions (`for` being a syntactic sugar of while)          
 * Supports `break` statement
-* Supports interpreter
+* Supports first class functions
+* Supports anonymous functions
+
 ### Prerequisites
 
 Ensure you have Rust installed. You can install it from [rust-lang.org](https://www.rust-lang.org/)
@@ -44,7 +46,7 @@ cargo test
 
 
 ### Usage
-do `cargo run` to play with the interpreter and also now you can code, with the command `cargo run [path]` you can run any code you have in any extension.
+do `cargo run` to play with the interpreter and also now you can code, with the command `cargo run [path]` you can run any code you have with any extension.
 
 ## Roadmap
 
@@ -54,11 +56,10 @@ do `cargo run` to play with the interpreter and also now you can code, with the 
 - [x]  Add functionality with `if` and `else`
 - [x]  Add functionality with `while`
 - [x]  Add functionality with `for`
-- [ ]  Add functionality with `fun`
-- [ ]  Add functionality with `return`
+- [x]  Add functionality with `fun`
+- [x]  Add functionality with `return`
 - [ ]  Add funciontality with `class`
 - [ ]  Add functionality with `methods`
-
 
 
 ## Contributing

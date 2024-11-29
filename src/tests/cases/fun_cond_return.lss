@@ -1,3 +1,4 @@
+--- TEST
 fun condreturn(a) {
   if (a <= 0) return 0;
 
@@ -8,3 +9,9 @@ print condreturn(4);
 print condreturn(3);
 print condreturn(2);
 print condreturn(-1);
+
+--- EXPECTED
+3
+2
+1
+0

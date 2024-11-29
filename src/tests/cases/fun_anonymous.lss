@@ -1,3 +1,4 @@
+--- TEST
 fun thrice(fn) {
   for (let i = 1; i <= 3; i = i + 1) {
     fn(i);
@@ -7,3 +8,8 @@ fun thrice(fn) {
 thrice(fun (a) {
   print a;
 });
+
+--- EXPECTED
+1
+2
+3

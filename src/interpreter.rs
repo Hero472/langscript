@@ -1,6 +1,6 @@
 use std::{cell::RefCell, rc::Rc};
 
-use crate::{environment::Environment, generate_ast::LiteralValueAst, stmt::Stmt, Token};
+use crate::{environment::Environment, generate_ast::{Expr, LiteralValueAst}, stmt::Stmt, Token};
 
 #[derive(Debug, Clone)]
 pub enum ControlFlow {
@@ -60,6 +60,9 @@ impl Interpreter {
         }
     }
 
+    pub fn resolve(&mut self, _expr: &Expr, _num: usize) -> Result<(), String> {
+        todo!()
+    }
 
     pub fn interpret(&mut self, stmts: Vec<&Stmt>) -> Result<ControlFlow, String> {
         for stmt in stmts {
@@ -170,7 +173,9 @@ impl Interpreter {
                     } else {
                         eval_val = LiteralValueAst::Null;
                     }
-                    self.specials.borrow_mut().define_top_level("return".to_string(), eval_val);
+                    self.specials
+                        .borrow_mut()
+                        .define_top_level("return".to_string(), eval_val);
                     Ok(ControlFlow::None)
                 }
             };
@@ -184,5 +189,6 @@ impl Interpreter {
     
         Ok(ControlFlow::None)
     }
+
 }
 

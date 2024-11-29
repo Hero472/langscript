@@ -1,3 +1,4 @@
+--- TEST
 let a = 2;
 while (a) {
     print a;
@@ -7,3 +8,7 @@ while (a) {
         break;
     }
 }
+
+--- EXPECTED
+2
+break!

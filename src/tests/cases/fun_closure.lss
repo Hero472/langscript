@@ -1,3 +1,4 @@
+--- TEST
 fun make_counter() {
     let i = 0;
     fun count() {
@@ -14,3 +15,9 @@ counter1();
 counter1();
 counter2();
 counter2();
+
+--- EXPECTED
+1
+2
+1
+2

@@ -1,3 +1,4 @@
+--- TEST
 fun no_return(a, b) {
     print a;
     print b;
@@ -5,3 +6,7 @@ fun no_return(a, b) {
 }
 
 no_return(1, 2);
+
+--- EXPECTED
+1
+2
