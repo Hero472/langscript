@@ -1,0 +1,5 @@
+--- TEST
+let a = clock();
+print a - a;
+--- EXPECTED
+0

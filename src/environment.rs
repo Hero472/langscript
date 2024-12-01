@@ -5,13 +5,38 @@ use std::rc::Rc;
 
 #[derive(Clone)]
 pub struct Environment {
+    globals: Rc<HashMap<String, LiteralValueAst>>,
     values: HashMap<String, LiteralValueAst>,
     pub enclosing: Option<Rc<RefCell<Environment>>>,
 }
 
+fn clock_impl(_env: Rc<RefCell<Environment>>, _args: &Vec<LiteralValueAst>) -> LiteralValueAst {
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::SystemTime::UNIX_EPOCH)
+        .expect("Could not get system time")
+        .as_millis();
+
+    LiteralValueAst::Number(now as f64 / 1000.0)
+}
+
+fn get_globals() -> HashMap<String, LiteralValueAst> {
+    let mut env: HashMap<String, LiteralValueAst> = HashMap::new();
+    env.insert(
+        "clock".to_string(),
+        LiteralValueAst::Callable {
+            name: "clock".to_string(),
+            arity: 0,
+            fun: Rc::new(clock_impl)
+        },
+    );
+    env
+}
+
+
 impl Environment {
     pub fn new() -> Self {
         Self {
+            globals: Rc::new(get_globals()),
             values: HashMap::new(),
             enclosing: None,
         }
@@ -36,7 +61,7 @@ impl Environment {
         match (value, &self.enclosing) {
             (Some(val), _) => Some(val.clone()),
             (None, Some(env)) => env.borrow().get(name),
-            (None, None) => None,
+            (None, None) => self.globals.get(name).cloned(),
         }
     }
 

@@ -1,4 +1,4 @@
-use std::{cell::RefCell, rc::Rc};
+use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use crate::{environment::Environment, generate_ast::{Expr, LiteralValueAst}, stmt::Stmt, Token};
 
@@ -10,34 +10,17 @@ pub enum ControlFlow {
 
 pub struct Interpreter {
     pub specials: Rc<RefCell<Environment>>,
-    pub environment: Rc<RefCell<Environment>>
+    pub environment: Rc<RefCell<Environment>>,
+    pub locals: Rc<RefCell<HashMap<usize, usize>>>
 }
-
-fn clock_impl(_env: Rc<RefCell<Environment>>, _args: &Vec<LiteralValueAst>) -> LiteralValueAst {
-    let now: u128 = std::time::SystemTime::now()
-        .duration_since(std::time::SystemTime::UNIX_EPOCH)
-        .expect("Could not get system time")
-        .as_millis();
-
-    LiteralValueAst::Number(now as f64 / 1000.0)
-}
-
 
 impl Interpreter {
     pub fn new() -> Self {
-        let mut globals: Environment = Environment::new();
-        globals.define(
-            "clock".to_string(),
-            LiteralValueAst::Callable {
-                name: "clock".to_string(),
-                arity: 0,
-                fun: Rc::new(clock_impl),
-            },
-        );
 
         Self {
             specials: Rc::new(RefCell::new(Environment::new())),
-            environment: Rc::new(RefCell::new(globals))
+            environment: Rc::new(RefCell::new(Environment::new())),
+            locals: Rc::new(RefCell::new(HashMap::new()))
         }
     }
     
@@ -47,7 +30,8 @@ impl Interpreter {
 
         Self { 
             specials: Rc::new(RefCell::new(Environment::new())),
-            environment 
+            environment,
+            locals: Rc::new(RefCell::new(HashMap::new()))
         }
     }
 
@@ -56,18 +40,27 @@ impl Interpreter {
         env.enclosing = Some(parent.clone());
         Self {
             specials: Rc::new(RefCell::new(Environment::new())),
-            environment: Rc::new(RefCell::new(env))
+            environment: Rc::new(RefCell::new(env)),
+            locals: Rc::new(RefCell::new(HashMap::new()))
         }
     }
 
-    pub fn resolve(&mut self, _expr: &Expr, _num: usize) -> Result<(), String> {
-        todo!()
+    pub fn resolve(&mut self, expr: &Expr, steps: usize) -> Result<(), String> {
+        let addr: usize = std::ptr::addr_of!(expr) as usize;
+        self.locals.borrow_mut().insert(addr, steps);
+        Ok(())
+    }
+
+    fn get_distance(&self, expr: &Expr) -> Option<usize> {
+        let addr = std::ptr::addr_of!(expr) as usize;
+        self.locals.borrow().get(&addr).copied()
     }
 
     pub fn interpret(&mut self, stmts: Vec<&Stmt>) -> Result<ControlFlow, String> {
         for stmt in stmts {
             let result = match stmt {
                 Stmt::Expression { expression } => {
+                    let distance = self.get_distance(&expression);
                     expression.evaluate(self.environment.clone())?;
                     Ok(ControlFlow::None)
                 }

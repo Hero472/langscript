@@ -2,7 +2,6 @@
 mod tests {
     use std::{fs::{read_dir, read_to_string, DirEntry}, process::Command};
 
-
     #[test]
     fn execute_tests() {
         let cases: std::fs::ReadDir = read_dir(r"C:\Users\herod\Workplace\Rust\Training\langscript\src\tests\cases").unwrap();

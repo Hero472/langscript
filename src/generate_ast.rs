@@ -186,6 +186,22 @@ impl std::fmt::Debug for Expr {
     }
 }
 
+impl std::hash::Hash for Expr {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        std::ptr::hash(self, state);
+    }
+}
+
+impl std::cmp::PartialEq for Expr {
+    fn eq(&self, other: &Self) -> bool {
+        let ptr1 = std::ptr::addr_of!(self);
+        let ptr2 = std::ptr::addr_of!(other);
+        ptr1 == ptr2
+    }
+}
+
+impl std::cmp::Eq for Expr {}
+
 #[derive(Clone)]
 pub enum Expr {
     AnonFunction {
@@ -223,8 +239,8 @@ pub enum Expr {
 }
 
 impl Expr {
-    pub fn to_string(&self) -> String {
-        
+
+    pub fn to_string(&self) -> String {    
         match self {
             Expr::AnonFunction { paren: _, arguments, body: _ } => format!("anon {}", arguments.len()),
             Expr::Assign { name, value } => format!("({name:?} = {}", value.to_string()),
@@ -444,6 +460,8 @@ impl Expr {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
+
     use crate::TokenType;
 
     use super::Expr::*;
@@ -477,4 +495,34 @@ mod tests {
         assert_eq!(format!("{}", ternary_expr.to_string()), "1 ? 2 : 3");
     }
 
+    #[test]
+    fn expr_is_hashable() {
+
+        let minus_token: Token = Token { token_type: TokenType::Minus, lexeme: "-".to_string(), literal: None, line_number: 1 };
+        let one_two_three: Expr = Literal { value: LiteralValueAst::Number(123.0) };
+        let group: Expr = Grouping { expression: Box::from(Literal {value: LiteralValueAst::Number(45.67)}) };
+        let multi: Token = Token { token_type: TokenType::Star, lexeme: "*".to_string(), literal: None, line_number: 1 };
+        let expr: Expr = Binary { left: Box::from(Unary { operator: minus_token, value: Box::from(one_two_three) }), operator: multi, right: Box::from(group) };
+
+        let mut map = HashMap::new();
+
+        let expr = std::rc::Rc::new(expr);
+        map.insert(expr.clone(), 2);
+
+        match map.get(&expr) {
+            Some(_) => (),
+            None => panic!("Unable to retrieve value"),
+        }
+
+        let minus_token: Token = Token { token_type: TokenType::Minus, lexeme: "-".to_string(), literal: None, line_number: 1 };
+        let one_two_three: Expr = Literal { value: LiteralValueAst::Number(123.0) };
+        let group: Expr = Grouping { expression: Box::from(Literal {value: LiteralValueAst::Number(45.67)}) };
+        let multi: Token = Token { token_type: TokenType::Star, lexeme: "*".to_string(), literal: None, line_number: 1 };
+        let expr: Expr = Binary { left: Box::from(Unary { operator: minus_token, value: Box::from(one_two_three) }), operator: multi, right: Box::from(group) };
+
+        match map.get(&expr) {
+            None => (),
+            Some(_) => panic!("Erroneously thought the two values where the same")
+        }
+    }
 }

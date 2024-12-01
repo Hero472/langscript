@@ -9,7 +9,6 @@ pub struct Resolver {
 
 impl Resolver {
     
-    #[allow(dead_code)]
     pub fn new() -> Self {
         Self {
             interpreter: Interpreter::new(),
@@ -17,7 +16,6 @@ impl Resolver {
         }
     }
 
-    #[allow(dead_code)]
     pub fn resolve(&mut self, stmt: &Stmt) -> Result<(), String> {
         
         match stmt {
@@ -38,7 +36,6 @@ impl Resolver {
         todo!()
     }
 
-    #[allow(dead_code)]
     fn resolve_block(&mut self, stmt: &Stmt) -> Result<(), String> {
         match stmt {
             Stmt::Block { statements } => {
@@ -51,7 +48,6 @@ impl Resolver {
         Ok(())
     }
 
-    #[allow(dead_code)]
     fn resolve_if_stmt(&mut self, stmt: &Stmt) -> Result<(), String> {
         if let Stmt::IfStmt { predicate, then, els } = stmt {
             self.resolve_expr(predicate)?;
@@ -63,7 +59,6 @@ impl Resolver {
         Ok(())
     }
 
-    #[allow(dead_code)]
     fn resolve_function(&mut self, stmt: &Stmt) -> Result<(), String> {
         if let Stmt::Function { name, params , body  } = stmt {
             self.declare(name);
@@ -76,7 +71,6 @@ impl Resolver {
         Ok(())
     }
 
-    #[allow(dead_code)]
     fn resolve_function_helper(&mut self, params: &Vec<Token>, body: &Vec<Box<Stmt>>) -> Result<(), String> {
 
         self.begin_scope();
@@ -92,7 +86,6 @@ impl Resolver {
         Ok(())
     }
 
-    #[allow(dead_code)]
     fn resolve_let(&mut self, stmt: &Stmt) -> Result<(), String>  {
         if let Stmt::Let { name, initializer } = stmt {
             self.declare(name);
@@ -104,7 +97,6 @@ impl Resolver {
         }
     }
 
-    #[allow(dead_code)]
     fn resolve_expr(&mut self, expr: &Expr) -> Result<(), String> {
         match expr {
             Expr::Variable { name: _ } => self.resolve_expr_let(expr),
@@ -139,7 +131,6 @@ impl Resolver {
         }
     }
 
-    #[allow(dead_code)]
     fn resolve_expr_let(&mut self, expr: &Expr) -> Result<(), String> {
         if let Expr::Variable { name } = expr {
             if !self.scopes.is_empty() && *self.scopes[self.scopes.len() - 1].get(&name.lexeme.clone()).unwrap() == false {
@@ -152,7 +143,6 @@ impl Resolver {
         }
     }
 
-    #[allow(dead_code)]
     fn resolve_expr_assign(&mut self, expr: &Expr) -> Result<(), String> {
         if let Expr::Assign { name: _, value } = expr {
             self.resolve_expr(value.as_ref())?;
@@ -163,7 +153,6 @@ impl Resolver {
         Ok(())
     }
 
-    #[allow(dead_code)]
     fn resolve_local(&mut self, expr: &Expr) -> Result<(), String> {
         if let Expr::Variable { name }  = expr {
             let size: usize = self.scopes.len();
@@ -178,7 +167,6 @@ impl Resolver {
         }
     }   
 
-    #[allow(dead_code)]
     fn declare(&mut self, name: &Token) {
         if self.scopes.is_empty() {return;}
         if let Some(last_scope) = self.scopes.last_mut() {
@@ -186,7 +174,6 @@ impl Resolver {
         }
     }
 
-    #[allow(dead_code)]
     fn define(&mut self, name: &Token) {
         if self.scopes.is_empty() {return;}
         if let Some(last_scope) = self.scopes.last_mut() {
@@ -194,19 +181,16 @@ impl Resolver {
         }
     }
 
-    #[allow(dead_code)]
     fn begin_scope(&mut self) {
         self.scopes.push(HashMap::new());
     }
 
-    #[allow(dead_code)]
     fn resolve_many(&mut self, stmts: &Vec<Box<Stmt>>) {
         for stmt in stmts {
             let _ = self.resolve(stmt);
         }
     }
 
-    #[allow(dead_code)]
     fn end_scope(&mut self) {
         self.scopes.pop().expect("Stack underflow");
     }
