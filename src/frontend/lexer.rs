@@ -244,6 +244,7 @@ impl<'a> Lexer<'a> {
             "true" => Token::BoolLiteral(true),
             "false" => Token::BoolLiteral(false),
             "mut" => Token::Mut,
+            "return" => Token::Return,
             _ => Token::Identifier(ident.to_string()),
         }
     }

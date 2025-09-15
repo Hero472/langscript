@@ -18,6 +18,7 @@ pub enum Token {
     Struct,
     Match,
     Mut,
+    Return,
     
     // Symbols
     Plus,
