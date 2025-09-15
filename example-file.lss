@@ -1,0 +1,72 @@
+/*
+primitive data types:
+
+bool
+byte
+int
+uint
+float
+double
+char
+string
+*/
+
+let mut variable: bool = true;
+let constant: bool = false;
+let tuple: (int, string, bool) = (42, "hello", true);
+let (number, text, flag) = tuple;
+
+const list_constant: [bool; 3] = [true, false, true];
+
+if constant {
+    print("Positive")
+} else {
+    print("Non-positive")
+}
+
+/*
+loops
+
+while variable {
+}
+
+for 0..10 {
+
+}
+
+for i in 0..10 {
+
+}
+
+for var in list_constant {
+
+}
+
+*/
+enum AnEnum {
+    Var1,
+    Var2,
+    Var3(bool)
+}
+
+enum Result<T,E> {
+    Ok(T),
+    Err(E)
+}
+
+enum Option<T> {
+    Some(T),
+    None
+}
+
+fn name(t: T): Result<A,E> {
+
+}
+
+let function = (t: T): Result<A,E> {}
+
+match anEnum {
+    Var1 => {},
+    Var2 => {},
+    Var3(x) => {}
+}

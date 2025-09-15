@@ -1,0 +1,15 @@
+let name = 10;
+let mut name1 = "Hola";
+
+for 0..1 {
+    fn hola() -> Result<T,E> {
+        
+        if >= <= < > {
+
+        }
+        // comment
+        /* multi line
+        comment
+        */
+    }    
+}

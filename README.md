@@ -1,69 +1,17 @@
+Core Implementation Files:
 
-# Langscript
-## Features
+src/frontend/lexer.rs - Tokenizes source code
 
-### Lexer
+src/frontend/parser.rs - Builds AST from tokens
 
-* tokenize from concrete syntax.
-* Supports basic arithmetic operations: `+`, `-`, `*`, `>`, `<` and `/`.
-* Supports `()` `{}` paren and braces.
-* Supports `,` `.` `;` `*` `!` tokens.
-* Supports two char tokens like `!=`
-* Supports `//` line comments
-* Supports String, Number and Identifiers and their operations
-* Supports `print`
-* Supports Expressions (Assign, Logical, Binary, Group, Literal, Unary, Ternary, Variable)
-* Supports scopes with different environment
-* Supports `while` and `for` expressions (`for` being a syntactic sugar of while)          
-* Supports `break` statement
-* Supports first class functions
-* Supports anonymous functions
+src/frontend/ast.rs - AST node definitions
 
-### Prerequisites
+src/middle/typeck.rs - Type checking and inference
 
-Ensure you have Rust installed. You can install it from [rust-lang.org](https://www.rust-lang.org/)
+src/middle/generics.rs - Generic type handling
 
-### Installation
+src/backend/monomorphize.rs - Generic instantiation
 
-1. Clone this repository
-```bash
-git clone https://github.com/Hero472/langscript.git
-cd langscript
-```
-2. Build the project
-```bash
-cargo build
-```
-3. Run the project
-```bash
-cargo run
-```
+src/core/result.rs - Result<T, E> implementation
 
-4. Test the project
-```bash
-cargo test
-```
-
-
-### Usage
-do `cargo run` to play with the interpreter and also now you can code, with the command `cargo run [path]` you can run any code you have with any extension.
-
-## Roadmap
-
-- [x]  Add parser.
-- [x]  Add Interpreter.
-- [x]  Add functionality with `let`
-- [x]  Add functionality with `if` and `else`
-- [x]  Add functionality with `while`
-- [x]  Add functionality with `for`
-- [x]  Add functionality with `fun`
-- [x]  Add functionality with `return`
-- [ ]  Add funciontality with `class`
-- [ ]  Add functionality with `methods`
-
-
-## Contributing
-
-Feel free to fork this repository, submit issues, or contribute to the project by creating pull requests.
-
-There are yet things to optimize in the code and also to see the limit cases on whats written in the source code, so feel free to test the code here!
+src/core/option.rs - Option<T> implementation
