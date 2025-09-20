@@ -1,15 +1,1 @@
-let name = 10;
-let mut name1 = "Hola";
-
-for 0..1 {
-    fn hola() -> Result<T,E> {
-        
-        if >= <= < > {
-
-        }
-        // comment
-        /* multi line
-        comment
-        */
-    }    
-}
+8 + 3 - 10 * (10 * 15 / 5) / 2

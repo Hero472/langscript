@@ -1,4 +1,6 @@
-use crate::frontend::{ast::Program, tokens::{Span, Token}};
+use std::vec;
+
+use crate::frontend::{ast::{BinaryOp, Expr, Program, UnaryOp}, tokens::{Span, Token}};
 
 pub struct Parser {
     tokens: Vec<(Token, Span)>,
@@ -14,7 +16,7 @@ pub struct ParserError {
 }
 
 impl Parser {
-    pub fn new(&self, tokens: Vec<(Token, Span)>) -> Self {
+    pub fn new(tokens: Vec<(Token, Span)>) -> Self {
 
         let current = tokens
             .first()
@@ -23,16 +25,218 @@ impl Parser {
 
         Self {
             tokens,
-            position: 1,
+            position: 0,
             current,
             errors: vec![]
         }
     }
 
-    pub fn parse(&mut self) -> Result<Program, Vec<ParserError>> {
-        let mut declarations = Vec::new();
+    pub fn parse(&mut self) -> Result<Vec<Expr>, Vec<ParserError>> {
 
-        todo!()
+        let mut expressions = vec![];
+
+        while !self.is_at_end() {
+            match self.expression() {
+                Ok(expr) => {
+                    expressions.push(expr);
+
+                    // if !self.is_at_end() {
+                    //     if let Err(err) = self.consume(Token::Semicolon, "Expect ';' after expression") {
+                    //         self.errors.push(err);
+                    //         self.synchronize();
+                    //     }
+                    // }
+                },
+                Err(err) => {
+
+                    // self.errors.push(err);
+                    // self.synchronize();
+                    
+                    // // Try to continue parsing after error recovery
+                    // if self.is_at_end() {
+                    //     break;
+                    // }
+                }
+            }
+        }
+        
+        if self.errors.is_empty() {
+            Ok(expressions)
+        } else {
+            Err(std::mem::take(&mut self.errors))
+        }
+
+    }
+
+    fn expression(&mut self) -> Result<Expr, ParserError> {
+        self.equality()
+    }
+
+    fn equality(&mut self) -> Result<Expr, ParserError> {
+        let mut expr = self.comparison()?;
+
+        while matches!(self.current.0, Token::DoubleEquals | Token::BangEquals) {
+
+            let op = match &self.current.0 {
+                Token::DoubleEquals => BinaryOp::Equals,
+                Token::BangEquals => BinaryOp::NotEquals,
+                _ => unreachable!()
+            };
+
+            self.advance();
+
+            let right = Box::from(self.comparison()?);
+
+            expr = Expr::Binary {
+                left: Box::from(expr),
+                op,
+                right
+            }
+        }
+        Ok(expr)
+    }
+
+    fn comparison(&mut self) -> Result<Expr, ParserError> {
+        let mut expr = self.term()?;
+        
+        while matches!(self.current.0, Token::Greater | Token::GreaterEqual | Token::Less | Token::LessEqual) {
+
+            let op = match &self.current.0 {
+                Token::Greater => BinaryOp::GreaterThan,
+                Token::GreaterEqual => BinaryOp::GreaterEq,
+                Token::Less => BinaryOp::LessThan,
+                Token::LessEqual => BinaryOp::LessEq,
+                _ => unreachable!()
+            };
+
+            self.advance();
+
+            let right = Box::from(self.term()?);
+
+            expr = Expr::Binary {
+                left: Box::from(expr),
+                op,
+                right
+            }
+
+        }
+        Ok(expr)
+    }
+
+    fn term(&mut self) -> Result<Expr, ParserError> {
+        let mut expr = self.factor()?;
+
+        while matches!(self.current.0, Token::Minus | Token:: Plus) {
+
+            let op = match &self.current.0 {
+                Token::Plus => BinaryOp::Add,
+                Token::Minus => BinaryOp::Subtract,
+                _ => unreachable!(),
+            };
+
+            self.advance();
+
+            let right = Box::from(self.factor()?);
+
+            expr = Expr::Binary {
+                left: Box::new(expr),
+                op,
+                right,
+            };
+
+        }
+        Ok(expr)
+    }
+
+    fn factor(&mut self) -> Result<Expr, ParserError> {
+        let mut expr = self.unary()?;
+
+        while matches!(self.current.0, Token::Star | Token::Slash) {
+
+            let op = match &self.current.0 {
+                Token::Star => BinaryOp::Multiply,
+                Token::Slash => BinaryOp::Divide,
+                _ => unreachable!(),
+            };
+
+            self.advance();
+
+            let right = Box::from(self.unary()?);
+
+            expr = Expr::Binary {
+                left: Box::new(expr),
+                op,
+                right,
+            };
+            println!("{:#?}", expr);
+        }
+        Ok(expr)
+    }
+
+    fn unary(&mut self) -> Result<Expr, ParserError> {
+
+        if matches!(self.current.0, Token::Bang | Token::Minus) {
+
+            let op = match &self.current.0 {
+                Token::Bang => UnaryOp::Not,
+                Token::Minus => UnaryOp::Negate,
+                Token::BitwiseNot => UnaryOp::BitNot,
+                _ => unreachable!()
+            };
+
+            self.advance();
+
+            let expr = self.unary()?;
+
+            Ok(Expr::Unary {
+                op,
+                expr: Box::new(expr),
+            })
+
+        } else {
+            self.primary()
+        }
+    }
+
+    fn primary(&mut self) -> Result<Expr, ParserError> {
+
+        match self.current.0.clone() { // TODO: clone
+            Token::IntLiteral(n) => {
+                self.advance();
+                return Ok(Expr::IntLiteral(n))
+            },
+            Token::FloatLiteral(f) => {
+                self.advance();
+                return Ok(Expr::FloatLiteral(f))
+            },
+            Token::CharLiteral(c) => {
+                self.advance();
+                return Ok(Expr::CharLiteral(c))
+            }
+            Token::StringLiteral(s) => {
+                self.advance();
+                return Ok(Expr::StringLiteral(s))
+            },
+            Token::BoolLiteral(b) => {
+                self.advance();
+                if b {
+                    return Ok(Expr::BoolLiteral(true))
+                } else {
+                    return Ok(Expr::BoolLiteral(false))
+                }
+            },
+            Token::Identifier(name) => {
+                self.advance();
+                return Ok(Expr::Identifier(name))
+            },
+            Token::LParen => {
+                self.advance();
+                let expr = self.expression()?;
+                self.consume(Token::RParen, "Expect ')' after expression.")?;
+                return Ok(Expr::Grouped(Box::from(expr)))
+            },
+            _ => return Err(self.error("Expect expression."))
+        }
     }
 
     // Helper functions

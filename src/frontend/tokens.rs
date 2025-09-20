@@ -5,6 +5,7 @@ pub enum Token {
     FloatLiteral(f64),
     BoolLiteral(bool),
     StringLiteral(String),
+    CharLiteral(char),
     Identifier(String),
     
     // Keywords
@@ -23,12 +24,15 @@ pub enum Token {
     // Symbols
     Plus,
     Minus,
+    BitwiseNot,
     Star,
     Slash,
+    Bang,
     Less,
     LessEqual,
     Greater,
     GreaterEqual,
+    BangEquals,
     Equals,
     DoubleEquals,
     LParen,

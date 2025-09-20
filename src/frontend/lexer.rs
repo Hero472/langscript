@@ -102,6 +102,10 @@ impl<'a> Lexer<'a> {
                             Token::Minus
                         }
                     }
+                    '~' => {
+                        self.advance();
+                        Token::BitwiseNot
+                    }
                     '*' => {
                         self.advance();
                         Token::Star
@@ -125,6 +129,17 @@ impl<'a> Lexer<'a> {
                         else {
                             self.advance();
                             Token::Slash
+                        }
+                    }
+                    '!' => {
+                        // Check for bang equals (!=)
+                        if self.peek_char() == Some('=') {
+                            self.advance(); // consume second '!'
+                            self.advance(); // consume second '='
+                            Token::BangEquals
+                        } else {
+                            self.advance();
+                            Token::Bang
                         }
                     }
                     '=' => {
@@ -170,6 +185,11 @@ impl<'a> Lexer<'a> {
                         self.consume_number()
                     }
                     
+                    // Character literals (single quotes)
+                    '\'' => {
+                        self.consume_char()
+                    }
+
                     // String literals
                     '"' => {
                         self.consume_string()
@@ -279,6 +299,61 @@ impl<'a> Lexer<'a> {
             Token::FloatLiteral(num_str.parse().unwrap_or(0.0))
         } else {
             Token::IntLiteral(num_str.parse().unwrap_or(0))
+        }
+    }
+
+    fn consume_char(&mut self) -> Token {
+        self.advance(); // consume opening single quote
+        
+        let char_value = match self.current_char() {
+            Some('\\') => {
+                // Escape sequence
+                self.advance(); // consume backslash
+                match self.current_char() {
+                    Some('n') => {
+                        self.advance();
+                        '\n'
+                    }
+                    Some('t') => {
+                        self.advance();
+                        '\t'
+                    }
+                    Some('r') => {
+                        self.advance();
+                        '\r'
+                    }
+                    Some('\'') => {
+                        self.advance();
+                        '\''
+                    }
+                    Some('\\') => {
+                        self.advance();
+                        '\\'
+                    }
+                    Some(c) => {
+                        self.advance();
+                        c // just use the character as-is
+                    }
+                    None => {
+                        return Token::Illegal; // Unterminated escape sequence
+                    }
+                }
+            }
+            Some(c) => {
+                self.advance();
+                c
+            }
+            None => {
+                return Token::Illegal; // Unterminated character literal
+            }
+        };
+        
+        // Consume closing single quote
+        if self.current_char() == Some('\'') {
+            self.advance();
+            Token::CharLiteral(char_value)
+        } else {
+            Token::Illegal // Missing closing quote
         }
     }
 

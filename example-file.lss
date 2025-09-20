@@ -70,3 +70,4 @@ match anEnum {
     Var2 => {},
     Var3(x) => {}
 }
+

@@ -59,7 +59,6 @@ impl PrimitiveType {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Type {
     Primitive(PrimitiveType),
-    Named(String),
     Array(Box<Type>),
     Tuple(Vec<Type>),
     Function {

@@ -1,5 +1,5 @@
 use std::{error::Error, fs};
-use langscript::frontend::lexer::Lexer;
+use langscript::frontend::{lexer::Lexer, parser::Parser};
 
 fn main() -> Result<(), Box<dyn Error>> {
     
@@ -17,9 +17,20 @@ fn main() -> Result<(), Box<dyn Error>> {
     let tokens = lexer.tokenize();
 
     println!("Tokens:");
-    for (token, span) in tokens {
+    for (token, span) in tokens.clone() {
         println!("  {:?} at {:?}", token, span);
     }
+
+    println!();
+
+    let mut parser = Parser::new(tokens);
+
+    let exprs = parser.parse().unwrap();
+
+    for expr in exprs {
+        println!("{:#?}", expr)
+    }
+    
     
     Ok(())
 }

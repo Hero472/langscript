@@ -184,10 +184,6 @@ pub enum Declaration {
     Struct(StructDecl),
     Enum(EnumDecl),
     Let(Stmt), // Global variable
-    TypeAlias {
-        name: String,
-        underlying_type: Type,
-    },
 }
 
 // Function declaration
