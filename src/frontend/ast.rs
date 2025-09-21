@@ -70,17 +70,22 @@ pub enum UnaryOp {
 // Binary operators
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum BinaryOp {
+    // Arithmetic
     Add,       // +
     Subtract,  // -
     Multiply,  // *
     Divide,    // /
     Modulo,    // %
+
+    // Comparison
     Equals,    // ==
     NotEquals, // !=
     LessThan,  // <
     LessEq,    // <=
     GreaterThan, // >
     GreaterEq, // >=
+
+    // Logical
     And,       // &&
     Or,        // ||
 }
