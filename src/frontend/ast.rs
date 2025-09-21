@@ -1,63 +1,93 @@
-use crate::core::types::Type;
+use crate::{core::types::Type, frontend::span::Span};
 
 #[derive(Debug, Clone)]
 pub enum Expr {
 
     // Literals
-    IntLiteral(i64),
-    UintLiteral(u64),
-    FloatLiteral(f64),
-    BoolLiteral(bool),
-    StringLiteral(String),
-    CharLiteral(char),
-    Identifier(String),
+    IntLiteral(i64, Span),
+    UintLiteral(u64, Span),
+    FloatLiteral(f64, Span),
+    BoolLiteral(bool, Span),
+    StringLiteral(String, Span),
+    CharLiteral(char, Span),
+    Identifier(String, Span),
 
     // Binary operations
     Binary {
         left: Box<Expr>,
         op: BinaryOp,
         right: Box<Expr>,
+        span: Span,
     },
     
     // Unary operations
     Unary {
         op: UnaryOp,
         expr: Box<Expr>,
+        span: Span,
     },
     
     // Function call
     Call {
         callee: Box<Expr>,
         args: Vec<Expr>,
+        span: Span,
     },
     
     // Member access (object.field)
     Member {
         object: Box<Expr>,
         member: String,
+        span: Span,
     },
     
     // Index access (array[index])
     Index {
         array: Box<Expr>,
         index: Box<Expr>,
+        span: Span,
     },
     
     // Parenthesized expression
-    Grouped(Box<Expr>),
+    Grouped(Box<Expr>, Span,),
     
     // If expression (ternary)
     If {
         condition: Box<Expr>,
         then_branch: Box<Expr>,
         else_branch: Option<Box<Expr>>,
+        span: Span,
     },
     
     // Cast expression
     Cast {
         expr: Box<Expr>,
         target_type: Type,
+        span: Span,
     },
+}
+
+impl Expr {
+    pub fn span(&self) -> Span {
+        match self {
+            Expr::IntLiteral(_, span)
+            | Expr::UintLiteral(_, span)
+            | Expr::FloatLiteral(_, span)
+            | Expr::BoolLiteral(_, span)
+            | Expr::StringLiteral(_, span)
+            | Expr::CharLiteral(_, span)
+            | Expr::Identifier(_, span)
+            | Expr::Grouped(_, span) => span.clone(),
+            
+            Expr::Binary { span, .. }
+            | Expr::Unary { span, .. }
+            | Expr::Call { span, .. }
+            | Expr::Member { span, .. }
+            | Expr::Index { span, .. }
+            | Expr::If { span, .. }
+            | Expr::Cast { span, .. } => span.clone(),
+        }
+    }
 }
 
 // Unary operators
@@ -98,18 +128,20 @@ pub enum Stmt {
         name: String,
         value: Expr,
         type_annotation: Option<Type>,
+        span: Span,
     },
 
     // Expression statement: x + 5;
-    Expr(Expr),
+    Expr(Expr, Span,),
     
     // Block: { stmt1; stmt2; }
-    Block(Vec<Stmt>),
+    Block(Vec<Stmt>, Span),
 
     // While loop: while condition { ... }
     While {
         condition: Expr,
         body: Box<Stmt>,
+        span: Span,
     },
     
     // For loop: for i in 0..10 { ... }
@@ -117,6 +149,7 @@ pub enum Stmt {
         variable: String,
         iterable: Expr,
         body: Box<Stmt>,
+        span: Span,
     },
 
     // Function definition: fn name() { ... }
@@ -125,36 +158,55 @@ pub enum Stmt {
         params: Vec<Param>,
         return_type: Option<Type>,
         body: Box<Stmt>,
+        span: Span,
     },
 
     // Return statement: return value;
-    Return(Option<Expr>),
+    Return(Option<Expr>, Span),
 
     // Match statement: match value { pattern => expr, ... }
     Match {
         expr: Expr,
         arms: Vec<MatchArm>,
+        span: Span,
     },
     
     // Break statement
-    Break,
+    Break(Span),
     
     // Continue statement
-    Continue,
+    Continue(Span),
+}
+
+impl Stmt {
+    pub fn span(&self) -> Span {
+        match self {
+            Stmt::Let { span, .. }
+            | Stmt::Expr(_, span)
+            | Stmt::Block(_, span)
+            | Stmt::While { span, .. }
+            | Stmt::For { span, .. }
+            | Stmt::Function { span, .. }
+            | Stmt::Return(_, span)
+            | Stmt::Match { span, .. }
+            | Stmt::Break(span)
+            | Stmt::Continue(span) => span.clone(),
+        }
+    }
 }
 
 // Function parameter
 #[derive(Debug, Clone)]
 pub struct Param {
     pub name: String,
-    pub type_annotation: Type,
+    pub type_annotation: Type
 }
 
 // Match arm
 #[derive(Debug, Clone)]
 pub struct MatchArm {
     pub pattern: Pattern,
-    pub body: Expr,
+    pub body: Expr
 }
 
 // Patterns for match statements
@@ -180,10 +232,10 @@ pub struct FieldPattern {
 // Top-level declarations
 #[derive(Debug, Clone)]
 pub enum Declaration {
-    Function(FunctionDecl),
-    Struct(StructDecl),
-    Enum(EnumDecl),
-    Let(Stmt), // Global variable
+    Function(FunctionDecl, Span),
+    Struct(StructDecl, Span),
+    Enum(EnumDecl, Span),
+    Let(Stmt, Span), // Global variable
 }
 
 // Function declaration

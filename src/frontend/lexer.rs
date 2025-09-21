@@ -1,19 +1,23 @@
-use super::tokens::{Token, Span};
+use crate::frontend::span::Span;
+
+use super::tokens::Token;
 
 pub struct Lexer<'a> {
     input: &'a str,
     position: usize,
     line: usize,
-    column: usize
+    column: usize,
+    filename: &'a str
 }
 
 impl<'a> Lexer<'a> {
-    pub fn new(input: &'a str) -> Self {
+    pub fn new(input: &'a str, filename: &'a str) -> Self {
         Self {
             input,
             position: 0,
             line: 1,
-            column: 1
+            column: 1,
+            filename,
         }
     }
 
@@ -21,7 +25,6 @@ impl<'a> Lexer<'a> {
         let mut tokens = Vec::new();
 
         while self.position < self.input.len() {
-            let start = self.position;
             let start_line = self.line;
             let start_col = self.column;
 
@@ -203,11 +206,11 @@ impl<'a> Lexer<'a> {
                 };
 
                 let span = Span {
-                    start,
-                    end: self.position,
-                    line: start_line,
-                    column: start_col,
-                    file_id: None
+                    start_line,        // line where token starts
+                    start_column: start_col,  // column where token starts
+                    end_line: start_line,     // line where token ends (same line for most tokens)
+                    end_column: self.position, // column where token ends
+                    file_id: None,     // file identifier
                 };
 
                 tokens.push((token, span));
@@ -218,12 +221,13 @@ impl<'a> Lexer<'a> {
 
         // Add EOF token
         let eof_span = Span {
-            start: self.position,
-            end: self.position,
-            line: self.line,
-            column: self.column,
+            start_line: self.line,
+            start_column: self.column,
+            end_line: self.line,
+            end_column: self.column,
             file_id: None
         };
+
         tokens.push((Token::EOF, eof_span));
 
         tokens

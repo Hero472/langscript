@@ -1,12 +1,13 @@
 use std::vec;
 
-use crate::frontend::{ast::{BinaryOp, Expr, Program, UnaryOp}, tokens::{Span, Token}};
+use crate::frontend::{ast::{BinaryOp, Expr, UnaryOp}, span::Span, tokens::Token};
 
 pub struct Parser {
     tokens: Vec<(Token, Span)>,
     position: usize,
     current: (Token, Span),
-    errors: Vec<ParserError>
+    errors: Vec<ParserError>,
+    filename: String
 }
 
 #[derive(Debug, Clone)]
@@ -16,18 +17,27 @@ pub struct ParserError {
 }
 
 impl Parser {
-    pub fn new(tokens: Vec<(Token, Span)>) -> Self {
+    pub fn new(tokens: Vec<(Token, Span)>, filename: String) -> Self {
 
         let current = tokens
             .first()
             .cloned()
-            .unwrap_or_else(|| (Token::EOF, Span { start: 0, end: 0, line: 0, column: 0, file_id: None }));
+            .unwrap_or_else(|| (Token::EOF, 
+                Span { 
+                    start_line: 0,
+                    start_column: 0,
+                    end_line: 0,
+                    end_column: 0,
+                    file_id: None 
+                }
+            ));
 
         Self {
             tokens,
             position: 0,
             current,
-            errors: vec![]
+            errors: vec![],
+            filename
         }
     }
 
@@ -87,10 +97,19 @@ impl Parser {
 
             let right = Box::from(self.comparison()?);
 
+            let combined_span = Span {
+                start_line: expr.span().start_line,
+                start_column: expr.span().start_column,
+                end_line: right.span().end_line,
+                end_column: right.span().end_column,
+                file_id: expr.span().file_id,
+            };
+
             expr = Expr::Binary {
                 left: Box::from(expr),
                 op,
-                right
+                right,
+                span: combined_span
             }
         }
         Ok(expr)
@@ -113,10 +132,19 @@ impl Parser {
 
             let right = Box::from(self.term()?);
 
+            let combined_span = Span {
+                start_line: expr.span().start_line,
+                start_column: expr.span().start_column,
+                end_line: right.span().end_line,
+                end_column: right.span().end_column,
+                file_id: expr.span().file_id,
+            };
+
             expr = Expr::Binary {
                 left: Box::from(expr),
                 op,
-                right
+                right,
+                span: combined_span
             }
 
         }
@@ -138,10 +166,19 @@ impl Parser {
 
             let right = Box::from(self.factor()?);
 
+            let combined_span = Span {
+                start_line: expr.span().start_line,
+                start_column: expr.span().start_column,
+                end_line: right.span().end_line,
+                end_column: right.span().end_column,
+                file_id: expr.span().file_id,
+            };
+
             expr = Expr::Binary {
                 left: Box::new(expr),
                 op,
                 right,
+                span: combined_span
             };
 
         }
@@ -163,10 +200,19 @@ impl Parser {
 
             let right = Box::from(self.unary()?);
 
+            let combined_span = Span {
+                start_line: expr.span().start_line,
+                start_column: expr.span().start_column,
+                end_line: right.span().end_line,
+                end_column: right.span().end_column,
+                file_id: expr.span().file_id,
+            };
+
             expr = Expr::Binary {
                 left: Box::new(expr),
                 op,
                 right,
+                span: combined_span
             };
         }
         Ok(expr)
@@ -175,6 +221,8 @@ impl Parser {
     fn unary(&mut self) -> Result<Expr, ParserError> {
 
         if matches!(self.current.0, Token::Bang | Token::Minus | Token::Plus) {
+
+            let operator_span = self.current.1;
 
             let op = match &self.current.0 {
                 Token::Bang => UnaryOp::Not,
@@ -186,9 +234,18 @@ impl Parser {
 
             let expr = self.unary()?;
 
+            let combined_span = Span {
+                start_line: operator_span.start_line,
+                start_column: operator_span.start_column,
+                end_line: expr.span().end_line,
+                end_column: expr.span().end_column,
+                file_id: operator_span.file_id,
+            };
+
             Ok(Expr::Unary {
                 op,
                 expr: Box::new(expr),
+                span: combined_span
             })
 
         } else {
@@ -198,44 +255,44 @@ impl Parser {
 
     fn primary(&mut self) -> Result<Expr, ParserError> {
 
-        match self.current.0.clone() { // TODO: clone
+        match self.current.0.clone() {
             Token::IntLiteral(n) => {
                 self.advance();
-                return Ok(Expr::IntLiteral(n))
+                return Ok(Expr::IntLiteral(n, *self.current_span()))
             },
             Token::UintLiteral(n) => {
                 self.advance();
-                return Ok(Expr::UintLiteral(n))
+                return Ok(Expr::UintLiteral(n, *self.current_span()))
             }
             Token::FloatLiteral(f) => {
                 self.advance();
-                return Ok(Expr::FloatLiteral(f))
+                return Ok(Expr::FloatLiteral(f, *self.current_span()))
             },
             Token::CharLiteral(c) => {
                 self.advance();
-                return Ok(Expr::CharLiteral(c))
+                return Ok(Expr::CharLiteral(c, *self.current_span()))
             }
             Token::StringLiteral(s) => {
                 self.advance();
-                return Ok(Expr::StringLiteral(s))
+                return Ok(Expr::StringLiteral(s, *self.current_span()))
             },
             Token::BoolLiteral(b) => {
                 self.advance();
                 if b {
-                    return Ok(Expr::BoolLiteral(true))
+                    return Ok(Expr::BoolLiteral(true, *self.current_span()))
                 } else {
-                    return Ok(Expr::BoolLiteral(false))
+                    return Ok(Expr::BoolLiteral(false, *self.current_span()))
                 }
             },
             Token::Identifier(name) => {
                 self.advance();
-                return Ok(Expr::Identifier(name))
+                return Ok(Expr::Identifier(name, *self.current_span()))
             },
             Token::LParen => {
                 self.advance();
                 let expr = self.expression()?;
                 self.consume(Token::RParen, "Expect ')' after expression.")?;
-                return Ok(Expr::Grouped(Box::from(expr)))
+                return Ok(Expr::Grouped(Box::from(expr), *self.current_span()))
             },
             _ => return Err(self.error("Expect expression."))
         }
@@ -245,16 +302,34 @@ impl Parser {
 
     fn advance(&mut self) {
         self.position += 1;
+
         if self.position < self.tokens.len() {
+
             self.current = self.tokens[self.position].clone();
+
         } else {
-            self.current = (Token::EOF, Span { 
-                start: self.current.1.end, 
-                end: self.current.1.end, 
-                line: self.current.1.line, 
-                column: self.current.1.column,
-                file_id: None
-            });
+
+            let eof_span = if let Some(last_token) = self.tokens.last() {
+
+                Span {
+                    start_line: last_token.1.end_line,
+                    start_column: last_token.1.end_column,
+                    end_line: last_token.1.end_line,
+                    end_column: last_token.1.end_column,
+                    file_id: last_token.1.file_id,
+                }
+            } else {
+
+                Span {
+                    start_line: 1,
+                    start_column: 1,
+                    end_line: 1,
+                    end_column: 1,
+                    file_id: None,
+                }
+            };
+            
+            self.current = (Token::EOF, eof_span);
         }
     }
 

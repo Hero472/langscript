@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::{frontend::ast::{BinaryOp, Expr, UnaryOp}, vm::{runtime_error::RuntimeError, value::Value}};
+use crate::{frontend::{ast::{BinaryOp, Expr, UnaryOp}, span::Span}, vm::{runtime_error::RuntimeError, value::Value}};
 
 pub struct Interpreter {
     variables: HashMap<String, Value>
@@ -14,60 +14,40 @@ impl Interpreter {
         }
     }
 
-
     pub fn evaluate(&mut self, exprs: Vec<Expr>) -> Result<Value, RuntimeError> {
 
         let mut last_value = Value::Bool(false);
         
         for expr in exprs {
-            let value = self.evaluate_expr(expr);
+            last_value = self.evaluate_expr(expr)?;
 
-            if value.is_err() {
-                return Err(RuntimeError::new("Something went wrong".to_string()))
-            }
         }
 
         Ok(last_value)
     }
 
-    fn evaluate_expr(&mut self, expr: Expr) -> Result<Value, String> {
+    fn evaluate_expr(&mut self, expr: Expr) -> Result<Value, RuntimeError> {
 
         match expr {
-            Expr::IntLiteral(n) => Ok(Value::Int(n)),
-            Expr::UintLiteral(n) => Ok(Value::Uint(n)),
-            Expr::StringLiteral(s) => Ok(Value::String(s)),
-            Expr::BoolLiteral(b) => Ok(Value::Bool(b)),
-            Expr::CharLiteral(c) => Ok(Value::Char(c)),
-            Expr::FloatLiteral(f) => Ok(Value::Float(f)),
-            Expr::Unary { op, expr } => {
+            Expr::IntLiteral(n, _) => Ok(Value::Int(n)),
+            Expr::UintLiteral(n, _) => Ok(Value::Uint(n)),
+            Expr::StringLiteral(s, _) => Ok(Value::String(s)),
+            Expr::BoolLiteral(b, _) => Ok(Value::Bool(b)),
+            Expr::CharLiteral(c, _) => Ok(Value::Char(c)),
+            Expr::FloatLiteral(f, _) => Ok(Value::Float(f)),
+            Expr::Unary { op, expr, span } => {
                 let value = self.evaluate_expr(*expr)?;
-
-                match op {
-                    UnaryOp::Negate => self.evaluate_negate(value),
-                    UnaryOp::Not => self.evaluate_not(value),
-                }
+                self.evaluate_unary_op(op, value, span)
             },
-            Expr::Binary { left, op, right } => {
-                let left = self.evaluate_expr(*left)?;
-                let right = self.evaluate_expr(*right)?;
-
-                match op {
-                    BinaryOp::Add => self.evaluate_add(left, right),
-                    BinaryOp::Subtract => self.evaluate_subtract(left, right),
-                    BinaryOp::Multiply => self.evaluate_multiply(left, right),
-                    BinaryOp::Divide => self.evaluate_divide(left, right),
-                    BinaryOp::Modulo => self.evaluate_modulo(left, right),
-                    BinaryOp::Equals => self.evaluate_equals(left, right),
-                    BinaryOp::NotEquals => self.evaluate_not_equals(left, right),
-                    BinaryOp::LessThan => self.evaluate_less_than(left, right),
-                    BinaryOp::LessEq => self.evaluate_less_eq(left, right),
-                    BinaryOp::GreaterThan => self.evaluate_greater_than(left, right),
-                    BinaryOp::GreaterEq => self.evaluate_greater_eq(left, right),
-                    BinaryOp::And => self.evaluate_and(left, right),
-                    BinaryOp::Or => self.evaluate_or(left, right),
-                }
-            }
-            _ => Err(format!("Expression type not implemented: {:?}", expr)),
+            Expr::Binary { left, op, right, span } => {
+                let left_val = self.evaluate_expr(*left)?;
+                let right_val = self.evaluate_expr(*right)?;
+                self.evaluate_binary_op(left_val, op, right_val, span)
+            },
+            Expr::Grouped(expr, _) => {
+                self.evaluate_expr(*expr)
+            },
+            _ => Err(RuntimeError::new(format!("Expression type not implemented: {:?}", expr))),
         }
     }
 
@@ -492,5 +472,50 @@ impl Interpreter {
                 Err(format!("Logical OR requires boolean operands, got {} and {}", left_desc, right_desc))
             }
         }
+    }
+
+    fn evaluate_binary_op(
+        &mut self,
+        left: Value,
+        op: BinaryOp,
+        right: Value,
+        span: Span
+    ) -> Result<Value, RuntimeError> {
+        let result = match op {
+            BinaryOp::Add => self.evaluate_add(left, right),
+            BinaryOp::Subtract => self.evaluate_subtract(left, right),
+            BinaryOp::Multiply => self.evaluate_multiply(left, right),
+            BinaryOp::Divide => self.evaluate_divide(left, right),
+            BinaryOp::Modulo => self.evaluate_modulo(left, right),
+            BinaryOp::Equals => self.evaluate_equals(left, right),
+            BinaryOp::NotEquals => self.evaluate_not_equals(left, right),
+            BinaryOp::LessThan => self.evaluate_less_than(left, right),
+            BinaryOp::LessEq => self.evaluate_less_eq(left, right),
+            BinaryOp::GreaterThan => self.evaluate_greater_than(left, right),
+            BinaryOp::GreaterEq => self.evaluate_greater_eq(left, right),
+            BinaryOp::And => self.evaluate_and(left, right),
+            BinaryOp::Or => self.evaluate_or(left, right),
+        };
+        
+        result.map_err(|e| self.wrap_error(e, span))
+    }
+
+    // Helper for unary operations
+    fn evaluate_unary_op(
+        &mut self,
+        op: UnaryOp,
+        value: Value,
+        span: Span
+    ) -> Result<Value, RuntimeError> {
+        let result = match op {
+            UnaryOp::Negate => self.evaluate_negate(value),
+            UnaryOp::Not => self.evaluate_not(value),
+        };
+        
+        result.map_err(|e| self.wrap_error(e, span))
+    }
+
+    fn wrap_error<E: Into<String>>(&self, error: E, span: Span) -> RuntimeError {
+        RuntimeError::new(error.into()).with_span(span)
     }
 }

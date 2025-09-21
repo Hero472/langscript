@@ -13,7 +13,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let filename = &args[1];
     let source = fs::read_to_string(filename)?;
 
-    let mut lexer = Lexer::new(&source);
+    let mut lexer = Lexer::new(&source, "testing.lss");
     let tokens = lexer.tokenize();
 
     println!("Tokens:");
@@ -23,37 +23,41 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     println!();
 
-    let mut parser = Parser::new(tokens);
-
-    let exprs_print = parser.parse();
-
-    if exprs_print.is_ok() {
-        let exprs_print = exprs_print.unwrap();
-        for expr in &exprs_print {
-            println!("{:#?}", expr)
-        }
-        println!("{:?}", exprs_print.len())
-    } else {
-        let exprs_print = exprs_print.unwrap_err();
-        for expr in &exprs_print {
-            println!("{:#?}", expr)
-        }
-        println!("{:?}", exprs_print.len())
-    }
+    let mut parser = Parser::new(tokens, "testing.lss".to_string());
 
     let exprs = parser.parse();
 
+    if exprs.is_err() {
+        let errors = exprs.unwrap_err();
+        for error in &errors {
+            println!("Parser Error: {:#?}", error);
+        }
+        println!("Total errors: {}", errors.len());
+        return Ok(());
+    }
+
+    let exprs = exprs.unwrap();
+
+    println!("Parsed expressions:");
+    for expr in &exprs {
+        println!("{:#?}", expr);
+    }
+    println!("Number of expressions: {}", exprs.len());
+
     let mut interpreter = Interpreter::new();
 
-    // let values = interpreter.evaluate(exprs.unwrap());
+   let result = interpreter.evaluate(exprs);
 
-    let a: u64 = 5/3;
-
-    let b :u64 = 5;
+   match result {
+        Ok(value) => {
+            println!("\nEvaluation successful!");
+            println!("Result: {:#?}", value);
+        }
+        Err(error) => {
+            println!("\nRuntime error occurred:");
+            println!("Error: {:#?}", error);
+        }
+    }
     
-    let c = a - b;
-
-    println!("{}", a);
-
     Ok(())
 }
