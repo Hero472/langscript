@@ -207,6 +207,7 @@ impl<'a> Lexer<'a> {
                     end: self.position,
                     line: start_line,
                     column: start_col,
+                    file_id: None
                 };
 
                 tokens.push((token, span));
@@ -221,6 +222,7 @@ impl<'a> Lexer<'a> {
             end: self.position,
             line: self.line,
             column: self.column,
+            file_id: None
         };
         tokens.push((Token::EOF, eof_span));
 

@@ -21,7 +21,7 @@ impl Parser {
         let current = tokens
             .first()
             .cloned()
-            .unwrap_or_else(|| (Token::EOF, Span { start: 0, end: 0, line: 0, column: 0 }));
+            .unwrap_or_else(|| (Token::EOF, Span { start: 0, end: 0, line: 0, column: 0, file_id: None }));
 
         Self {
             tokens,
@@ -252,7 +252,8 @@ impl Parser {
                 start: self.current.1.end, 
                 end: self.current.1.end, 
                 line: self.current.1.line, 
-                column: self.current.1.column 
+                column: self.current.1.column,
+                file_id: None
             });
         }
     }

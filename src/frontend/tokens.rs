@@ -54,10 +54,28 @@ pub enum Token {
     Illegal,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone,)]
 pub struct Span {
     pub start: usize,
     pub end: usize,
     pub line: usize,
     pub column: usize,
+    pub file_id: Option<usize>,
+}
+
+impl Span {
+    pub fn new(start: usize, end: usize, line: usize, column: usize) -> Self {
+        Self {
+            start,
+            end,
+            line,
+            column,
+            file_id: None,
+        }
+    }
+    
+    pub fn with_file(mut self, file_id: usize) -> Self {
+        self.file_id = Some(file_id);
+        self
+    }
 }
