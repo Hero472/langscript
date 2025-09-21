@@ -2,6 +2,7 @@
 pub enum Token {
     // Literals
     IntLiteral(i64),
+    UintLiteral(u64),
     FloatLiteral(f64),
     BoolLiteral(bool),
     StringLiteral(String),
@@ -24,7 +25,6 @@ pub enum Token {
     // Symbols
     Plus,
     Minus,
-    BitwiseNot,
     Star,
     Slash,
     Bang,
@@ -35,6 +35,7 @@ pub enum Token {
     BangEquals,
     Equals,
     DoubleEquals,
+    Modulo,
     LParen,
     RParen,
     LBrace,

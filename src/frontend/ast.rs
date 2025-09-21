@@ -5,6 +5,7 @@ pub enum Expr {
 
     // Literals
     IntLiteral(i64),
+    UintLiteral(u64),
     FloatLiteral(f64),
     BoolLiteral(bool),
     StringLiteral(String),
@@ -64,7 +65,6 @@ pub enum Expr {
 pub enum UnaryOp {
     Negate,    // -
     Not,       // !
-    BitNot,    // ~
 }
 
 // Binary operators
@@ -83,11 +83,6 @@ pub enum BinaryOp {
     GreaterEq, // >=
     And,       // &&
     Or,        // ||
-    BitAnd,    // &
-    BitOr,     // |
-    BitXor,    // ^
-    ShiftLeft, // <<
-    ShiftRight, // >>
 }
 
 // Statement nodes

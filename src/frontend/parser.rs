@@ -9,7 +9,7 @@ pub struct Parser {
     errors: Vec<ParserError>
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ParserError {
     message: String,
     span: Span,
@@ -49,13 +49,13 @@ impl Parser {
                 },
                 Err(err) => {
 
-                    // self.errors.push(err);
-                    // self.synchronize();
+                    self.errors.push(err);
+                    self.synchronize();
                     
-                    // // Try to continue parsing after error recovery
-                    // if self.is_at_end() {
-                    //     break;
-                    // }
+                    // Try to continue parsing after error recovery
+                    if self.is_at_end() {
+                        break;
+                    }
                 }
             }
         }
@@ -168,19 +168,17 @@ impl Parser {
                 op,
                 right,
             };
-            println!("{:#?}", expr);
         }
         Ok(expr)
     }
 
     fn unary(&mut self) -> Result<Expr, ParserError> {
 
-        if matches!(self.current.0, Token::Bang | Token::Minus) {
+        if matches!(self.current.0, Token::Bang | Token::Minus | Token::Plus) {
 
             let op = match &self.current.0 {
                 Token::Bang => UnaryOp::Not,
                 Token::Minus => UnaryOp::Negate,
-                Token::BitwiseNot => UnaryOp::BitNot,
                 _ => unreachable!()
             };
 
@@ -205,6 +203,10 @@ impl Parser {
                 self.advance();
                 return Ok(Expr::IntLiteral(n))
             },
+            Token::UintLiteral(n) => {
+                self.advance();
+                return Ok(Expr::UintLiteral(n))
+            }
             Token::FloatLiteral(f) => {
                 self.advance();
                 return Ok(Expr::FloatLiteral(f))
@@ -298,6 +300,15 @@ impl Parser {
     }
 
     fn error(&self, message: &str) -> ParserError {
+        if self.is_at_end() {
+
+            let token = self.previous_token().unwrap().clone();
+
+            return ParserError {
+                message: format!("{:?} is at end of file", token.0),
+                span: token.1
+            }
+        }
         ParserError {
             message: message.to_string(),
             span: self.current_span().clone(),

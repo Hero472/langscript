@@ -102,9 +102,9 @@ impl<'a> Lexer<'a> {
                             Token::Minus
                         }
                     }
-                    '~' => {
+                    '%' => {
                         self.advance();
-                        Token::BitwiseNot
+                        Token::Modulo
                     }
                     '*' => {
                         self.advance();
