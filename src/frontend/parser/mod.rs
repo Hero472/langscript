@@ -1,4 +1,4 @@
-use crate::frontend::{lexer::{span::Span, tokens::Token}, parser::{ast::{Expr, Stmt}, core::ParserCore, error::ParserError, expressions::ExpressionParser}};
+use crate::frontend::{lexer::{span::Span, tokens::Token}, parser::{ast::{Expr, Stmt}, core::ParserCore, error::ParserError, expressions::ExpressionParser, statements::StatementParser}};
 
 pub mod error;
 pub mod ast;
@@ -17,13 +17,13 @@ impl Parser {
         }
     }
 
-    pub fn parse(&mut self) -> Result<Vec<Expr>, Vec<ParserError>> {
-        let mut expressions = vec![];
+    pub fn parse(&mut self) -> Result<Vec<Stmt>, Vec<ParserError>> {
+        let mut statements = vec![];
 
         while !self.core.is_at_end() {
-            match self.core.expression() {
+            match self.core.statement() {
                 Ok(expr) => {
-                    expressions.push(expr);
+                    statements.push(expr);
 
                     if !self.core.is_at_end() {
                         if let Err(err) = self.core.consume(Token::Semicolon, "Expect ';' after expression") {
@@ -44,15 +44,10 @@ impl Parser {
         }
         
         if self.core.errors.is_empty() {
-            Ok(expressions)
+            Ok(statements)
         } else {
             Err(self.core.take_errors())
         }
     }
 
-    // You can also add a method for parsing statements
-    pub fn parse_statements(&mut self) -> Result<Vec<Stmt>, Vec<ParserError>> {
-        // Implementation for statement parsing
-        todo!()
-    }
 }

@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::{frontend::{lexer::span::Span, parser::ast::{BinaryOp, Expr, UnaryOp}}, vm::{runtime_error::RuntimeError, value::Value}};
+use crate::{core::types::{PrimitiveType, Type}, frontend::{lexer::span::Span, parser::ast::{BinaryOp, Expr, Stmt, UnaryOp}}, vm::{runtime_error::RuntimeError, value::Value}};
 
 pub struct Interpreter {
     variables: HashMap<String, Value>
@@ -14,16 +14,46 @@ impl Interpreter {
         }
     }
 
-    pub fn evaluate(&mut self, exprs: Vec<Expr>) -> Result<Value, RuntimeError> {
+    pub fn evaluate(&mut self, stmts: Vec<Stmt>) -> Result<Value, RuntimeError> {
 
         let mut last_value = Value::Bool(false);
         
-        for expr in exprs {
-            last_value = self.evaluate_expr(expr)?;
+        for stmt in stmts {
+            last_value = self.evaluate_statement(stmt)?;
 
         }
 
         Ok(last_value)
+    }
+
+    fn evaluate_statement(&mut self, stmt: Stmt) -> Result<Value, RuntimeError> {
+
+        match stmt {
+            Stmt::Let { name, value, type_annotation, span } => {
+                let evaluated_value = self.evaluate_expr(value)?;
+                let actual_type = self.get_value_type(&evaluated_value);
+                
+                if let Some(expected_type) = type_annotation {
+
+                    if !self.types_are_compatible(&expected_type, &actual_type) {
+                        return Err(
+                            RuntimeError::new(format!("Type error: variable '{}' declared as {} but assigned {} in line: {} column: {}",
+                                    name,
+                                    self.type_to_string(&expected_type),
+                                    self.type_to_string(&actual_type),
+                                    span.start_line,
+                                    span.start_column
+                                )
+                            )
+                        )
+                    }
+
+                }
+                self.variables.insert(name.clone(), evaluated_value.clone());
+                Ok(evaluated_value)
+            },
+            _ => Err(RuntimeError::new("Not yet implemented".to_string()))
+        }
     }
 
     fn evaluate_expr(&mut self, expr: Expr) -> Result<Value, RuntimeError> {
@@ -517,5 +547,85 @@ impl Interpreter {
 
     fn wrap_error<E: Into<String>>(&self, error: E, span: Span) -> RuntimeError {
         RuntimeError::new(error.into()).with_span(span)
+    }
+
+    fn get_value_type(&self, value: &Value) -> Type {
+        match value {
+            Value::Int(_) => Type::Primitive(PrimitiveType::Int),
+            Value::Uint(_) => Type::Primitive(PrimitiveType::Uint),
+            Value::Float(_) => Type::Primitive(PrimitiveType::Float),
+            Value::Bool(_) => Type::Primitive(PrimitiveType::Bool),
+            Value::Char(_) => Type::Primitive(PrimitiveType::Char),
+            Value::String(_) => Type::Primitive(PrimitiveType::String),
+            Value::Array(elements) => {
+                if let Some(first) = elements.first() {
+                    Type::Array(Box::new(self.get_value_type(first)))
+                } else {
+                    // Empty array - you might want to handle this differently
+                    Type::Array(Box::new(Type::Primitive(PrimitiveType::Int))) // Default type
+                }
+            },
+            Value::Tuple(tuple) => {
+                let mut values = vec![];
+
+                for t in tuple {
+                    let typed = self.get_value_type(t);
+                    values.push(typed);
+                };
+                Type::Tuple(values)
+            }
+            _ => Type::Primitive(PrimitiveType::Bool) // not yet implemented
+            // Add other value types as needed
+        }
+    }
+
+    fn types_are_compatible(&self, expected: &Type, actual: &Type) -> bool {
+
+        match (expected, actual) {
+            (Type::Primitive(a), Type::Primitive(b)) => a == b,
+            (Type::Array(a), Type::Array(b)) => self.types_are_compatible(a, b),
+            (Type::Tuple(a), Type::Tuple(b)) if a.len() == b.len() => {
+                a.iter().zip(b.iter()).all(|(a_type, b_type)| {
+                    self.types_are_compatible(a_type, b_type)
+                })
+            },
+            (Type::Function { params: a_params, return_type: a_return }, 
+                Type::Function { params: b_params, return_type: b_return }) 
+                if a_params.len() == b_params.len() => 
+                {
+                // Check all parameter types are compatible
+                let params_compatible = a_params.iter().zip(b_params.iter())
+                    .all(|(a, b)| self.types_are_compatible(a, b));
+                
+                // Check return types are compatible
+                let return_compatible = self.types_are_compatible(a_return, b_return);
+                
+                params_compatible && return_compatible
+            },
+            _ => false
+            
+        }
+
+    }
+
+    fn type_to_string(&self, type_: &Type) -> String {
+        match type_ {
+            Type::Primitive(prim) => prim.to_string(),
+            Type::Array(inner) => format!("[{}]", self.type_to_string(inner)),
+            Type::Tuple(types) => {
+                let types_str = types.iter()
+                    .map(|t| self.type_to_string(t))
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                format!("({})", types_str)
+            }
+            Type::Function { params, return_type } => {
+                let params_str = params.iter()
+                    .map(|t| self.type_to_string(t))
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                format!("fn({}) -> {}", params_str, self.type_to_string(return_type))
+            }
+        }
     }
 }

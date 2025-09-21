@@ -3,7 +3,6 @@ use crate::core::types::{PrimitiveType, Type};
 #[derive(Debug, Clone, PartialEq)]
 pub enum Value {
     Bool(bool),
-    Byte(u8),
     Int(i64),
     Uint(u64),
     Float(f64),
@@ -21,7 +20,6 @@ impl Value {
     pub fn get_primitive_type(&self) -> Option<PrimitiveType> {
         match self {
             Value::Bool(_) => Some(PrimitiveType::Bool),
-            Value::Byte(_) => Some(PrimitiveType::Byte),
             Value::Int(_) => Some(PrimitiveType::Int),
             Value::Uint(_) => Some(PrimitiveType::Uint),
             Value::Float(_) => Some(PrimitiveType::Float),

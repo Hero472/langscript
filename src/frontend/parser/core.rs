@@ -87,6 +87,10 @@ impl ParserCore {
         }
     }
 
+    pub fn actual_token(&self) -> &(Token, Span) {
+        &self.tokens[self.position]
+    }
+
     pub fn check(&self, token: Token) -> bool {
         self.current_token() == &token
     }
@@ -109,7 +113,7 @@ impl ParserCore {
         }
     }
 
-    pub fn error(&self, message: &str) -> ParserError {
+    pub fn error(&self, message: &str) -> ParserError { // add span in the method so it always tells me where is it
         if self.is_at_end() {
 
             let token = self.previous_token().unwrap().clone();
