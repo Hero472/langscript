@@ -1,4 +1,5 @@
-use crate::frontend::span::Span;
+use crate::frontend::lexer::span::Span;
+
 
 #[derive(Debug, Clone)]
 pub struct RuntimeError {

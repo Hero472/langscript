@@ -1,4 +1,4 @@
-use crate::{core::types::Type, frontend::span::Span};
+use crate::{core::types::Type, frontend::lexer::span::Span};
 
 #[derive(Debug, Clone)]
 pub enum Expr {
@@ -132,7 +132,7 @@ pub enum Stmt {
     },
 
     // Expression statement: x + 5;
-    Expr(Expr, Span,),
+    Expr(Expr, Span),
     
     // Block: { stmt1; stmt2; }
     Block(Vec<Stmt>, Span),

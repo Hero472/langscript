@@ -1,5 +1,5 @@
 use std::{error::Error, fs};
-use langscript::{frontend::{lexer::Lexer, parser::Parser}, vm::interpreter::Interpreter};
+use langscript::{frontend::{lexer::lexer::Lexer, parser::Parser}, vm::interpreter::Interpreter};
 
 fn main() -> Result<(), Box<dyn Error>> {
     

@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::{frontend::{ast::{BinaryOp, Expr, UnaryOp}, span::Span}, vm::{runtime_error::RuntimeError, value::Value}};
+use crate::{frontend::{lexer::span::Span, parser::ast::{BinaryOp, Expr, UnaryOp}}, vm::{runtime_error::RuntimeError, value::Value}};
 
 pub struct Interpreter {
     variables: HashMap<String, Value>

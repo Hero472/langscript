@@ -1,6 +1,6 @@
-use crate::frontend::span::Span;
+use crate::frontend::lexer::{span::Span, tokens::Token};
 
-use super::tokens::Token;
+
 
 pub struct Lexer<'a> {
     input: &'a str,
