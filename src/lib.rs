@@ -5,3 +5,4 @@ pub mod frontend;
 pub mod middle;
 pub mod runtime;
 pub mod vm;
+pub mod error;

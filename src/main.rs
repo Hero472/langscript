@@ -1,5 +1,5 @@
 use std::{error::Error, fs};
-use langscript::{frontend::{lexer::lexer::Lexer, parser::Parser}, vm::interpreter::Interpreter};
+use langscript::{frontend::{lexer::lexer::Lexer, parser::Parser}, middle::typeck::TypeChecker, vm::{interpreter::Interpreter, VirtualMachine}};
 
 fn main() -> Result<(), Box<dyn Error>> {
     
@@ -44,9 +44,19 @@ fn main() -> Result<(), Box<dyn Error>> {
     }
     println!("Number of expressions: {}", exprs.len());
 
-    let mut interpreter = Interpreter::new();
+    let mut type_check = TypeChecker::new();
 
-   let result = interpreter.evaluate(exprs);
+    let typed_errors = type_check.check(exprs.clone());
+
+    if typed_errors.clone().is_err() {
+        for type_error in typed_errors.unwrap_err() {
+            println!("{}", type_error)
+        }
+    }
+
+    let mut vm = VirtualMachine::new();
+
+   let result = vm.interpret(exprs);
 
    match result {
         Ok(value) => {

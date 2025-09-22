@@ -62,3 +62,27 @@ pub enum Type {
     // Add type variables for generics later if needed
     // TypeVar(String),
 }
+
+impl Type {
+    pub fn is_numeric(&self) -> bool {
+        match self {
+            Type::Primitive(primitive) => matches!(primitive, PrimitiveType::Int | PrimitiveType::Float),
+            Type::Array(element_type) => element_type.is_numeric(),
+            Type::Tuple(types) => types.iter().all(|t| t.is_numeric()),
+            Type::Function { .. } => false,
+        }
+    }
+
+    pub fn is_comparable(&self) -> bool {
+        match self {
+            Type::Primitive(primitive) => matches!(
+                primitive, 
+                PrimitiveType::Int | PrimitiveType::Float | PrimitiveType::Bool | 
+                PrimitiveType::Char | PrimitiveType::String
+            ),
+            Type::Array(element_type) => element_type.is_comparable(),
+            Type::Tuple(types) => types.iter().all(|t| t.is_comparable()),
+            Type::Function { .. } => false,
+        }
+    }
+}

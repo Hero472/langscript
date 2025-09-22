@@ -1,30 +1,4 @@
-use crate::frontend::lexer::span::Span;
-
-
-#[derive(Debug, Clone)]
-pub struct RuntimeError {
-    message: String,
-    line: Option<usize>,
-    column: Option<usize>,
-    end_line: Option<usize>,
-    end_column: Option<usize>,
-    file: Option<String>,
-    stack_trace: Vec<String>,
-    error_type: RuntimeErrorType,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum RuntimeErrorType {
-    TypeError,
-    ValueError,
-    DivisionByZero,
-    Overflow,
-    Underflow,
-    UndefinedVariable,
-    IndexOutOfBounds,
-    InvalidOperation,
-    Custom(String),
-}
+use crate::{error::{RuntimeError, RuntimeErrorType}, frontend::lexer::span::Span};
 
 impl RuntimeError {
     pub fn new(message: String) -> Self {
@@ -202,3 +176,7 @@ impl std::fmt::Display for RuntimeErrorType {
 }
 
 impl std::error::Error for RuntimeError {}
+
+pub fn wrap_error<E: Into<String>>(error: E, span: Span) -> RuntimeError {
+        RuntimeError::new(error.into()).with_span(span)
+    }

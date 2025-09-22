@@ -1,7 +1,3 @@
-use std::collections::HashMap;
-
-use crate::{core::types::{PrimitiveType, Type}, frontend::{lexer::span::Span, parser::ast::{BinaryOp, Expr, Stmt, UnaryOp}}, vm::{runtime_error::RuntimeError, value::Value}};
-
 pub struct Interpreter {
     variables: HashMap<String, Value>
 }
