@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::{core::types::{PrimitiveType, Type}, error::TypeError, frontend::{lexer::span::Span, parser::ast::{BinaryOp, Expr, Stmt, UnaryOp}}, vm::value::Value};
+use crate::{core::types::{PrimitiveType, Type}, error::TypeError, frontend::{lexer::span::Span, parser::ast::{BinaryOp, Declaration, Expr, Program, Stmt, UnaryOp}}, vm::value::Value};
 
 pub struct TypeChecker {
     type_context: HashMap<String, Type>, // Variables and their types
@@ -17,11 +17,11 @@ impl TypeChecker {
         }
     }
 
-    pub fn check(&mut self, ast: Vec<Stmt>)-> Result<(), Vec<TypeError>> {
+    pub fn check(&mut self, program: &Program)-> Result<(), Vec<TypeError>> {
         let mut type_errors = vec![];
 
-        for stmt in ast {
-            if let Err(error) = self.check_statement(&stmt) {
+        for decl in &program.declarations {
+            if let Err(error) = self.check_declaration(&decl) {
                 type_errors.push(error);
             }
         }
@@ -33,9 +33,19 @@ impl TypeChecker {
         }
     }
 
+    fn check_declaration(&mut self, decl: &Declaration) -> Result<(), TypeError> {
+
+        match decl {
+            Declaration::Function(function_decl, span) => Ok(()),
+            Declaration::Struct(struct_decl, span) => Ok(()),
+            Declaration::Enum(enum_decl, span) => Ok(()),
+        }
+
+    }
+
     fn check_statement(&mut self, stmt: &Stmt) -> Result<(), TypeError> {
         match stmt {
-            Stmt::Let { name, value, type_annotation, span } => {
+            Stmt::Let { name, value, type_annotation, span, .. } => {
 
                 let value_type = self.check_expression(value)?;
 
@@ -154,8 +164,6 @@ impl TypeChecker {
                     ))
                 }
             }
-            
-            // Add other operators as needed...
             _ => Err(TypeError::new(
                 span.clone(),
                 format!("Operator '{:?}' not supported for type {}", 
@@ -182,9 +190,7 @@ impl TypeChecker {
                             self.type_to_string(operand_type))
                     ))
                 }
-            }
-            
-            // Logical negation (requires bool, returns bool)
+            },
             UnaryOp::Not => {
                 if *operand_type == Type::Primitive(PrimitiveType::Bool) {
                     Ok(Type::Primitive(PrimitiveType::Bool))
@@ -196,13 +202,6 @@ impl TypeChecker {
                     ))
                 }
             }
-            
-            // Add other unary operators...
-            _ => Err(TypeError::new(
-                span.clone(),
-                format!("Unary operator '{:?}' not supported for type {}", 
-                    op, self.type_to_string(operand_type))
-            ))
         }
     }
 
@@ -232,6 +231,9 @@ impl TypeChecker {
             Value::Function { address, captured_env } => {
                 // Type::Function { params: (), return_type: () }
                 todo!("Function type checking not implemented yet")
+            },
+            Value::Struct { struct_name, field_values } => {
+                todo!("Struct type checking not implemented yet")
             }
             // Handle other value types
         }
@@ -277,6 +279,7 @@ impl TypeChecker {
                     .join(", ");
                 format!("fn({}) -> {}", params_str, self.type_to_string(return_type))
             }
+            Type::Struct(name) => name.clone()
         }
     }
 

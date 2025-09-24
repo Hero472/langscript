@@ -1,18 +1,23 @@
-use crate::{core::types::{PrimitiveType, Type}, frontend::{lexer::{span::Span, tokens::Token}, parser::{ast::Stmt, core::ParserCore, error::ParserError, expressions::ExpressionParser}}};
+use crate::{core::types::{PrimitiveType, Type}, frontend::{lexer::{span::Span, tokens::Token}, parser::{ast::{Param, Stmt}, core::ParserCore, error::ParserError, expressions::ExpressionParser}}};
 
 pub trait StatementParser {
     fn statement(&mut self) -> Result<Stmt, ParserError>;
     fn let_statement(&mut self) -> Result<Stmt, ParserError>;
-    fn print_statement(&mut self) -> Result<Stmt, ParserError>;
+    fn function_statement(&mut self) -> Result<Stmt, ParserError>;
+    fn block_statement(&mut self) -> Result<Stmt, ParserError>;
     fn consume_identifier(&mut self, message: &str) -> Result<String, ParserError>;
     fn consume_token(&mut self, expected: Token, message: &str) -> Result<(), ParserError>;
+    fn consume_semicolon(&mut self) -> Result<(), ParserError> ;
     fn parse_type(&mut self) -> Result<Type, ParserError>;
 }
 
 impl StatementParser for ParserCore {
+
     fn statement(&mut self) -> Result<Stmt, ParserError> {
         if self.matches(Token::Let) {
             self.let_statement()
+        } else if self.matches(Token::Fn) {
+            self.function_statement()
         } else {
             let expr = self.expression()?;
             let span = expr.span();
@@ -23,8 +28,15 @@ impl StatementParser for ParserCore {
     fn let_statement(&mut self) -> Result<Stmt, ParserError> {
         use super::ExpressionParser;
         
+        let mut mutable = false;
+
         // let
         let let_span = self.previous_token().unwrap().1;
+
+        // let mut
+        if self.matches(Token::Mut) {
+            mutable = true;
+        }
 
         // let name
         let name = self.consume_identifier("Expect variable name after 'let'")?;
@@ -48,17 +60,98 @@ impl StatementParser for ParserCore {
             file_id: let_span.file_id,
         };
 
+        self.consume_semicolon()?;
+
         Ok(Stmt::Let {
             name,
             value,
             type_annotation,
             span,
+            mutable
         })
 
     }
 
-    fn print_statement(&mut self) -> Result<Stmt, ParserError> {
-        todo!()
+    fn function_statement(&mut self) -> Result<Stmt, ParserError> {
+
+        // fn
+        let fn_span = self.previous_token().unwrap().1;
+
+        // fn name
+        let name = self.consume_identifier("Expect function name after 'fn'")?;
+
+        // fn name(
+        self.consume_token(Token::LParen, "Expect left parenthesis after function name")?;
+
+        let mut params = vec![];
+
+        if !self.check(Token::RParen) {
+            loop {
+                let param_name = self.consume_identifier("Expect parameter name")?;
+
+                self.consume(Token::Colon, "Expect ':' after parameter name")?;
+
+                let param_type = self.parse_type()?;
+
+                params.push(Param {
+                    name: param_name,
+                    type_annotation: param_type,
+                });
+
+                if !self.matches(Token::Comma) {
+                    break;
+                }
+
+            }
+        }
+
+        self.consume(Token::RParen, "Expect ')' after parameters")?;
+
+        let return_type = if self.matches(Token::Arrow) {
+            Some(self.parse_type()?)
+        } else {
+            None
+        };
+
+        let body = self.block_statement()?;
+
+        let span = Span {
+            start_line: fn_span.start_line,
+            start_column: fn_span.start_column,
+            end_line: body.span().end_line,
+            end_column: body.span().end_column,
+            file_id: fn_span.file_id,
+        };
+
+        Ok(Stmt::Function {
+            name,
+            params,
+            return_type,
+            body: Box::new(body),
+            span,
+        })
+
+    }
+
+    fn block_statement(&mut self) -> Result<Stmt, ParserError> {
+
+        let left_brace_span = self.actual_token().1;
+
+        let mut statements = vec![];
+        
+        self.advance();
+
+        while !self.check(Token::RBrace) && !self.is_at_end() {
+            statements.push(self.statement()?);
+        }
+
+        self.consume(Token::RBrace, "Expect '}' after block")?;
+        let right_brace_span = self.previous_token().unwrap().1;
+        
+        let span = left_brace_span.merge(&right_brace_span);
+
+        Ok(Stmt::Block(statements, span))
+
     }
 
     // Helper Functions
@@ -100,10 +193,14 @@ impl StatementParser for ParserCore {
         }
     }
 
+    fn consume_semicolon(&mut self) -> Result<(), ParserError> {
+        let span = self.current.1;
+        self.consume(Token::Semicolon, &format!("Expected semicolon ';' at the end of statement at line {} column {}", span.start_line, span.start_column))
+    }
+
     fn parse_type(&mut self) -> Result<Type, ParserError> {
 
-        let (token, span)= self.actual_token()
-            .clone();
+        let (token, span)= self.actual_token().clone();
 
         match &token {
             Token::Identifier(name) => {

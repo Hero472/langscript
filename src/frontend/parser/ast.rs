@@ -1,4 +1,4 @@
-use crate::{core::types::Type, frontend::lexer::span::Span};
+use crate::{core::types::Type, frontend::lexer::span::Span, vm::value::Value};
 
 #[derive(Debug, Clone)]
 pub enum Expr {
@@ -68,6 +68,29 @@ pub enum Expr {
 }
 
 impl Expr {
+
+    pub fn get_value(&self) -> Option<Value> {
+        match self {
+            Expr::IntLiteral(n, _) => Some(Value::Int(*n)),
+            Expr::UintLiteral(n, _) => Some(Value::Uint(*n)),
+            Expr::FloatLiteral(n, _) => Some(Value::Float(*n)),
+            Expr::BoolLiteral(b, _) => Some(Value::Bool(*b)),
+            Expr::StringLiteral(s, _) => Some(Value::String(s.clone())),
+            Expr::CharLiteral(c, _) => Some(Value::Char(*c)),
+            
+            // These expressions don't have immediate literal values
+            Expr::Identifier(_, _) => None,
+            Expr::Binary { .. } => None,
+            Expr::Unary { .. } => None,
+            Expr::Call { .. } => None,
+            Expr::Member { .. } => None,
+            Expr::Index { .. } => None,
+            Expr::Grouped(expr, _) => expr.get_value(), // Recursively check grouped expression
+            Expr::If { .. } => None,
+            Expr::Cast { expr, .. } => expr.get_value(), // Check the expression being cast
+        }
+    }
+
     pub fn span(&self) -> Span {
         match self {
             Expr::IntLiteral(_, span)
@@ -129,6 +152,7 @@ pub enum Stmt {
         value: Expr,
         type_annotation: Option<Type>,
         span: Span,
+        mutable: bool
     },
 
     // Expression statement: x + 5;
@@ -232,10 +256,18 @@ pub struct FieldPattern {
 // Top-level declarations
 #[derive(Debug, Clone)]
 pub enum Declaration {
-    Function(FunctionDecl, Span),
-    Struct(StructDecl, Span),
-    Enum(EnumDecl, Span),
-    Let(Stmt, Span), // Global variable
+    Function(FunctionDecl, Span),    // Function declaration
+    Struct(StructDecl, Span),        // Struct declaration  
+    Enum(EnumDecl, Span),            // Enum declaration
+}
+
+#[derive(Debug, Clone)]
+pub struct LetDecl {
+    pub name: String,
+    pub value: Expr,
+    pub type_annotation: Type,
+    pub mutable: bool,
+    pub is_exported: bool,
 }
 
 // Function declaration

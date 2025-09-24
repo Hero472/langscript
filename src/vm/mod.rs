@@ -1,4 +1,4 @@
-use crate::{error::RuntimeError, frontend::parser::ast::Stmt, vm::{interpreter::Interpreter, value::Value}};
+use crate::{error::RuntimeError, frontend::parser::ast::Program, vm::{interpreter::Interpreter, value::Value}};
 
 pub mod interpreter;
 pub mod value;
@@ -15,7 +15,7 @@ impl VirtualMachine {
         }
     }
 
-    pub fn interpret(&mut self, statements: Vec<Stmt>) -> Result<Value, RuntimeError> {
-        self.interpreter.interpret(statements)
+    pub fn interpret(&mut self, program: Program) -> Result<Value, RuntimeError> {
+        self.interpreter.interpret(program)
     }
 }

@@ -1,5 +1,5 @@
-use std::{error::Error, fs};
-use langscript::{frontend::{lexer::lexer::Lexer, parser::Parser}, middle::typeck::TypeChecker, vm::{interpreter::Interpreter, VirtualMachine}};
+use std::{error::Error, fs, process};
+use langscript::{frontend::{lexer::lexer::Lexer, parser::Parser}, middle::typeck::TypeChecker, vm::VirtualMachine};
 
 fn main() -> Result<(), Box<dyn Error>> {
     
@@ -17,7 +17,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let tokens = lexer.tokenize();
 
     println!("Tokens:");
-    for (token, span) in tokens.clone() {
+    for (token, span) in &tokens {
         println!("  {:?} at {:?}", token, span);
     }
 
@@ -25,38 +25,41 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let mut parser = Parser::new(tokens, "testing.lss".to_string());
 
-    let exprs = parser.parse();
+    let program = parser.parse();
 
-    if exprs.is_err() {
-        let errors = exprs.unwrap_err();
+    if program.is_err() {
+        let errors = program.unwrap_err();
         for error in &errors {
             println!("Parser Error: {:#?}", error);
         }
         println!("Total errors: {}", errors.len());
-        return Ok(());
+        process::exit(1);
     }
 
-    let exprs = exprs.unwrap();
+    let program = program.unwrap();
 
     println!("Parsed expressions:");
-    for expr in &exprs {
-        println!("{:#?}", expr);
+    for decl in &program.declarations {
+        println!("{:#?}", decl);
     }
-    println!("Number of expressions: {}", exprs.len());
+    println!("Number of expressions: {}", &program.declarations.len());
 
     let mut type_check = TypeChecker::new();
 
-    let typed_errors = type_check.check(exprs.clone());
+    let typed_errors = type_check.check(&program);
 
-    if typed_errors.clone().is_err() {
-        for type_error in typed_errors.unwrap_err() {
-            println!("{}", type_error)
+    if typed_errors.is_err() {
+        let errors = typed_errors.unwrap_err();
+        for type_error in &errors {
+            println!("Type Error: {}", type_error);
         }
+        println!("Total type errors: {}", errors.len());
+        process::exit(1);
     }
 
     let mut vm = VirtualMachine::new();
 
-   let result = vm.interpret(exprs);
+   let result = vm.interpret(program);
 
    match result {
         Ok(value) => {

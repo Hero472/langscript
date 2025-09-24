@@ -1,4 +1,4 @@
-use std::fmt;
+use std::{collections::HashMap, fmt};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum PrimitiveType {
@@ -59,8 +59,18 @@ pub enum Type {
         params: Vec<Type>,
         return_type: Box<Type>,
     },
-    // Add type variables for generics later if needed
-    // TypeVar(String),
+    Struct(String)
+}
+
+#[derive(Debug, Clone)]
+pub struct StructDefinition {
+    pub name: String,
+    pub fields: HashMap<String, Type>, // No Hash needed here
+}
+
+#[derive(Debug, Clone)]
+pub struct TypeContext {
+    pub structs: HashMap<String, StructDefinition>,
 }
 
 impl Type {
@@ -70,6 +80,7 @@ impl Type {
             Type::Array(element_type) => element_type.is_numeric(),
             Type::Tuple(types) => types.iter().all(|t| t.is_numeric()),
             Type::Function { .. } => false,
+            Type::Struct(_) => false 
         }
     }
 
@@ -83,6 +94,7 @@ impl Type {
             Type::Array(element_type) => element_type.is_comparable(),
             Type::Tuple(types) => types.iter().all(|t| t.is_comparable()),
             Type::Function { .. } => false,
+            Type::Struct(_) => false
         }
     }
 }
