@@ -74,4 +74,49 @@ impl Span {
             file_id: self.file_id,
         }
     }
+
+    /// Creates a span that represents a single point
+    pub fn point(line: usize, column: usize, file_id: Option<usize>) -> Self {
+        Self {
+            start_line: line,
+            start_column: column,
+            end_line: line,
+            end_column: column,
+            file_id,
+        }
+    }
+
+    pub fn to_user_friendly(&self) -> String {
+        if let Some(file_id) = self.file_id {
+            if self.start_line == self.end_line {
+                if self.start_column == self.end_column {
+                    format!("in file {} at line {}", file_id, self.start_line)
+                } else {
+                    format!(
+                        "in file {} at line {}, columns {}-{}",
+                        file_id, self.start_line, self.start_column, self.end_column
+                    )
+                }
+            } else {
+                format!(
+                    "in file {} from line {} to line {}",
+                    file_id, self.start_line, self.end_line
+                )
+            }
+        } else {
+            if self.start_line == self.end_line {
+                if self.start_column == self.end_column {
+                    format!("at line {}", self.start_line)
+                } else {
+                    format!(
+                        "at line {}, columns {}-{}",
+                        self.start_line, self.start_column, self.end_column
+                    )
+                }
+            } else {
+                format!("from line {} to line {}", self.start_line, self.end_line)
+            }
+        }
+    }
+
 }

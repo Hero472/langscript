@@ -155,6 +155,14 @@ pub enum Stmt {
         mutable: bool
     },
 
+    // If statement
+    If {
+        condition: Expr,
+        then_branch: Box<Stmt>,
+        else_branch: Option<Box<Stmt>>,
+        span: Span
+    },
+
     // Expression statement: x + 5;
     Expr(Expr, Span),
     
@@ -206,6 +214,7 @@ impl Stmt {
     pub fn span(&self) -> Span {
         match self {
             Stmt::Let { span, .. }
+            | Stmt::If { span, .. } 
             | Stmt::Expr(_, span)
             | Stmt::Block(_, span)
             | Stmt::While { span, .. }

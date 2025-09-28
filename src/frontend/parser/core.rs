@@ -1,10 +1,11 @@
-use crate::frontend::{lexer::{span::Span, tokens::Token}, parser::{ast::Stmt, error::ParserError}};
+use crate::frontend::{lexer::{span::Span, tokens::Token}, parser::{ast::Expr, error::{ParserError, ParserErrorType}}};
 
 pub struct ParserCore {
     pub tokens: Vec<(Token, Span)>,
     pub position: usize,
     pub current: (Token, Span),
     pub errors: Vec<ParserError>,
+    pub expr: Option<Expr>,
     filename: String,
 }
 
@@ -41,6 +42,7 @@ impl ParserCore {
             position: 0,
             current,
             errors: vec![],
+            expr: None,
             filename
         }
     }
@@ -177,8 +179,8 @@ impl ParserCore {
     ///     // Current token is a semicolon
     /// }
     /// ```
-    pub fn check(&self, token: Token) -> bool {
-        self.current_token() == &token
+    pub fn check(&self, token: &Token) -> bool {
+        self.current_token() == token
     }
 
     /// Checks if the current token matches the given token and consumes it if true.
@@ -198,7 +200,7 @@ impl ParserCore {
     /// }
     /// ```
     pub fn matches(&mut self, token: Token) -> bool {
-        if self.check(token) {
+        if self.check(&token) {
             self.advance();
             true
         } else {
@@ -210,7 +212,7 @@ impl ParserCore {
     /// If the token doesn't match, returns a ParserError with the given message.
     ///
     /// # Arguments
-    /// * `token` - The expected token to consume
+    /// * `expected` - The expected token to consume
     /// * `error_msg` - Error message to return if token doesn't match
     ///
     /// # Returns
@@ -221,12 +223,163 @@ impl ParserCore {
     /// // Expect and consume a left parenthesis
     /// parser.consume(Token::LParen, "Expect '(' after function name")?;
     /// ```
-    pub fn consume(&mut self, token: Token, error_msg: &str) -> Result<(), ParserError> {
-        if self.check(token) {
+    pub fn consume(&mut self, expected: Token, error_msg: &str) -> Result<(), ParserError> {
+        if self.check(&expected) {
             self.advance();
             Ok(())
         } else {
-            Err(self.error(error_msg))
+            if self.is_at_end() {
+                if let Some(previous_token) = self.previous_token() {
+                    return Err(ParserError::expected_token(
+                        expected.as_str(),
+                        previous_token.1,
+                    ).with_context(error_msg));
+                }
+            }
+            
+            let found = self.current_token();
+            Err(ParserError::unexpected_token(
+                expected.as_str(),
+                found.as_str(),
+                self.current_span().clone(),
+            ).with_context(error_msg))
+        }
+    }
+
+    /// Consumes the current token if it matches the expected token, with a formatted error message.
+    ///
+    /// # Arguments
+    /// * `expected` - The expected token to consume
+    /// * `error_msg` - Format string for the error message
+    ///
+    /// # Returns
+    /// `Ok(())` if token was consumed, `Err(ParserError)` otherwise
+    ///
+    /// # Examples
+    /// ```ignore
+    /// parser.consume_format(Token::RParen, "Expect ')' after {} expression", "if condition");
+    /// ```
+    pub fn consume_format(&mut self, expected: Token, error_msg: std::fmt::Arguments<'_>) -> Result<(), ParserError> {
+        if self.check(&expected) {
+            self.advance();
+            Ok(())
+        } else {
+            let message = error_msg.to_string();
+            if self.is_at_end() {
+                if let Some(previous_token) = self.previous_token() {
+                    return Err(ParserError::expected_token(
+                        expected.as_str(),
+                        previous_token.1,
+                    ).with_context(&message));
+                }
+            }
+            
+            let found = self.current_token();
+            Err(ParserError::unexpected_token(
+                expected.as_str(),
+                found.as_str(),
+                self.current_span().clone(),
+            ).with_context(&message))
+        }
+    }
+
+    /// Consumes the current token if it matches any of the expected tokens.
+    ///
+    /// # Arguments
+    /// * `expected_tokens` - Slice of possible expected tokens
+    /// * `error_msg` - Error message to return if no token matches
+    ///
+    /// # Returns
+    /// `Ok(Token)` with the consumed token if matched, `Err(ParserError)` otherwise
+    ///
+    /// # Examples
+    /// ```ignore
+    /// // Expect and consume either 'let' or 'mut'
+    /// let token = parser.consume_any(&[Token::Let, Token::Mut], "Expect variable declaration")?;
+    /// ```
+    pub fn consume_any(&mut self, expected_tokens: &[Token], error_msg: &str) -> Result<Token, ParserError> {
+        
+        for expected in expected_tokens {
+            if self.check(&expected) {
+                let token = self.current_token().clone();
+                self.advance();
+                return Ok(token);
+            }
+        }
+        
+        if self.is_at_end() {
+            if let Some(previous_token) = self.previous_token() {
+                let expected_str = expected_tokens.iter()
+                    .map(|t| t.as_str())
+                    .collect::<Vec<_>>()
+                    .join(" or ");
+                return Err(ParserError::expected_token(
+                    &expected_str,
+                    previous_token.1,
+                ).with_context(error_msg));
+            }
+        }
+        
+        let found = self.current_token();
+        let expected_str = expected_tokens.iter()
+            .map(|t| t.as_str())
+            .collect::<Vec<_>>()
+            .join(" or ");
+        
+        Err(ParserError::unexpected_token(
+            &expected_str,
+            found.as_str(),
+            self.current_span().clone(),
+        ).with_context(error_msg))
+    }
+
+    /// Consumes a token of a specific type (like identifier, number, etc.) and returns its value.
+    ///
+    /// # Arguments
+    /// * `expected_type` - Description of what type of token is expected
+    /// * `error_msg` - Error message to return if token doesn't match the type
+    ///
+    /// # Returns
+    /// `Ok(String)` with the token's value if matched, `Err(ParserError)` otherwise
+    ///
+    /// # Examples
+    /// ```ignore
+    /// let name = parser.consume_identifier("Expect variable name")?;
+    /// ```
+    pub fn consume_identifier(&mut self, error_msg: &str) -> Result<String, ParserError> {
+        if let Token::Identifier(name) = &self.current_token() {
+            let identifier = name.clone();
+            self.advance();
+            Ok(identifier)
+        } else {
+            if self.is_at_end() {
+                if let Some(previous_token) = self.previous_token() {
+                    return Err(ParserError::expected_token(
+                        "identifier",
+                        previous_token.1,
+                    ).with_context(error_msg));
+                }
+            }
+            
+            let found = self.current_token();
+            Err(ParserError::unexpected_token(
+                "identifier",
+                found.as_str(),
+                self.current_span().clone(),
+            ).with_context(error_msg))
+        }
+    }
+
+    /// Consumes a semicolon if it's present, but doesn't error if it's missing (for error recovery).
+    ///
+    /// # Returns
+    /// `true` if a semicolon was consumed, `false` otherwise
+    pub fn consume_semicolon_if_present(&mut self) -> bool {
+        if self.check(&Token::Semicolon) {
+            self.advance();
+            true
+        } else {
+            false
         }
     }
 
@@ -244,20 +397,150 @@ impl ParserCore {
     /// let error = parser.error("Expected variable name");
     /// // Error will have message and point to current token location
     /// ```
-    pub fn error(&self, message: &str) -> ParserError { // add span in the method so it always tells me where is it
+    pub fn error(&self, message: &str) -> ParserError {
         if self.is_at_end() {
-
-            let token = self.previous_token().unwrap().clone();
-
-            return ParserError {
-                message: format!("{:?} is at end of file, try finish with ';'", token.0),
-                span: token.1
+            if let Some(previous_token) = self.previous_token() {
+                return ParserError::syntax_error(
+                    format!("Unexpected end of file after '{:?}', expected {}", previous_token.0, message),
+                    previous_token.1,
+                );
+            } else {
+                // No tokens at all - empty file
+                return ParserError::syntax_error(
+                    "Unexpected end of file".to_string(),
+                    Span::point(1, 1, None), // Default to beginning of file
+                );
             }
         }
-        ParserError {
-            message: message.to_string(),
-            span: self.current_span().clone(),
+        
+        ParserError::syntax_error(
+            message.to_string(),
+            self.current_span().clone(),
+        )
+    }
+
+    /// Creates a ParserError for unexpected token situations
+    ///
+    /// # Arguments
+    /// * `expected` - What was expected
+    /// * `found` - What was actually found
+    ///
+    /// # Returns
+    /// A ParserError with formatted message and appropriate span
+    pub fn unexpected_token(&self, expected: &Token, found: &str) -> ParserError {
+        if self.is_at_end() {
+            if let Some(previous_token) = self.previous_token() {
+                ParserError::unexpected_token(
+                    expected.as_str(),
+                    "end of file",
+                    previous_token.1,
+                )
+            } else {
+                ParserError::unexpected_token(
+                    expected.as_str(),
+                    "end of file",
+                    Span::point(1, 1, None),
+                )
+            }
+        } else {
+            ParserError::unexpected_token(
+                expected.as_str(),
+                found,
+                self.current_span().clone(),
+            )
         }
+    }
+
+    /// Creates a ParserError for expected token situations
+    ///
+    /// # Arguments
+    /// * `expected` - What was expected
+    ///
+    /// # Returns
+    /// A ParserError with formatted message and appropriate span
+    pub fn expected_token(&self, expected: &Token) -> ParserError {
+        if self.is_at_end() {
+            if let Some(previous_token) = self.previous_token() {
+                ParserError::expected_token(
+                    expected.as_str(),
+                    previous_token.1,
+                )
+            } else {
+                ParserError::expected_token(
+                    expected.as_str(),
+                    Span::point(1, 1, None),
+                )
+            }
+        } else {
+            ParserError::expected_token(
+                expected.as_str(),
+                self.current_span().clone(),
+            )
+        }
+    }
+
+    /// Creates a ParserError for custom error types with specific error type
+    ///
+    /// # Arguments
+    /// * `message` - The error message
+    /// * `error_type` - Specific type of parser error
+    ///
+    /// # Returns
+    /// A ParserError with specified type and span
+    pub fn error_with_type(&self, message: &str, error_type: ParserErrorType) -> ParserError {
+        let span = if self.is_at_end() {
+            self.previous_token()
+                .map(|token| token.1)
+                .unwrap_or_else(|| Span::point(1, 1, None))
+        } else {
+            self.current_span().clone()
+        };
+        
+        ParserError::with_type(message.to_string(), span, error_type)
+    }
+
+    /// Creates a ParserError for invalid expressions
+    ///
+    /// # Arguments
+    /// * `message` - Description of why the expression is invalid
+    ///
+    /// # Returns
+    /// A ParserError with InvalidExpression type
+    pub fn invalid_expression(&self, message: &str) -> ParserError {
+        self.error_with_type(message, ParserErrorType::InvalidExpression)
+    }
+
+    /// Creates a ParserError for unterminated strings
+    ///
+    /// # Returns
+    /// A ParserError with UnterminatedString type
+    pub fn unterminated_string(&self) -> ParserError {
+        let span = if self.is_at_end() {
+            self.previous_token()
+                .map(|token| token.1)
+                .unwrap_or_else(|| Span::point(1, 1, None))
+        } else {
+            self.current_span().clone()
+        };
+        
+        ParserError::unterminated_string(span)
+    }
+
+    /// Creates a ParserError using the parser_error! macro format
+    ///
+    /// # Arguments
+    /// * `message` - Format string and arguments
+    ///
+    /// # Returns
+    /// A ParserError with formatted message
+    ///
+    /// # Examples
+    /// ```ignore
+    /// let error = parser.error_format!("Expected {} but found {}", "identifier", "123");
+    /// ```
+    pub fn error_format(&self, args: std::fmt::Arguments<'_>) -> ParserError {
+        let message = args.to_string();
+        self.error(&message)
     }
 
     /// Recovers from a parsing error by synchronizing to the next statement boundary.

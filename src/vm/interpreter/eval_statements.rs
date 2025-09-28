@@ -24,7 +24,7 @@ pub fn evaluate_statement(interpreter: &mut Interpreter, stmt: Stmt) -> Result<V
         Stmt::Block(statements, span) => {
             interpreter.enter_scope();
 
-            let mut last_value = Value::Bool(false);
+            let mut last_value = Value::Unit;
 
             for stmt in statements {
                 last_value = evaluate_statement(interpreter, stmt)?;

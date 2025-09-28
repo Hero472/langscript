@@ -30,19 +30,13 @@ impl ExpressionParser for ParserCore {
 
             let right = Box::from(self.comparison()?);
 
-            let combined_span = Span {
-                start_line: expr.span().start_line,
-                start_column: expr.span().start_column,
-                end_line: right.span().end_line,
-                end_column: right.span().end_column,
-                file_id: expr.span().file_id,
-            };
+            let span = expr.span().merge(&right.span());
 
             expr = Expr::Binary {
                 left: Box::from(expr),
                 op,
                 right,
-                span: combined_span
+                span
             }
         }
         Ok(expr)
@@ -52,7 +46,6 @@ impl ExpressionParser for ParserCore {
         let mut expr = self.term()?;
         
         while matches!(self.current.0, Token::Greater | Token::GreaterEqual | Token::Less | Token::LessEqual) {
-
             let op = match &self.current.0 {
                 Token::Greater => BinaryOp::GreaterThan,
                 Token::GreaterEqual => BinaryOp::GreaterEq,
@@ -62,22 +55,15 @@ impl ExpressionParser for ParserCore {
             };
 
             self.advance();
-
             let right = Box::from(self.term()?);
 
-            let combined_span = Span {
-                start_line: expr.span().start_line,
-                start_column: expr.span().start_column,
-                end_line: right.span().end_line,
-                end_column: right.span().end_column,
-                file_id: expr.span().file_id,
-            };
+            let span = expr.span().merge(&right.span());
 
             expr = Expr::Binary {
                 left: Box::from(expr),
                 op,
                 right,
-                span: combined_span
+                span
             }
 
         }
@@ -99,19 +85,13 @@ impl ExpressionParser for ParserCore {
 
             let right = Box::from(self.factor()?);
 
-            let combined_span = Span {
-                start_line: expr.span().start_line,
-                start_column: expr.span().start_column,
-                end_line: right.span().end_line,
-                end_column: right.span().end_column,
-                file_id: expr.span().file_id,
-            };
+            let span = expr.span().merge(&right.span());
 
             expr = Expr::Binary {
                 left: Box::new(expr),
                 op,
                 right,
-                span: combined_span
+                span
             };
 
         }
@@ -133,19 +113,13 @@ impl ExpressionParser for ParserCore {
 
             let right = Box::from(self.unary()?);
 
-            let combined_span = Span {
-                start_line: expr.span().start_line,
-                start_column: expr.span().start_column,
-                end_line: right.span().end_line,
-                end_column: right.span().end_column,
-                file_id: expr.span().file_id,
-            };
+            let span = expr.span().merge(&right.span());
 
             expr = Expr::Binary {
                 left: Box::new(expr),
                 op,
                 right,
-                span: combined_span
+                span
             };
         }
         Ok(expr)
@@ -167,20 +141,15 @@ impl ExpressionParser for ParserCore {
 
             let expr = self.unary()?;
 
-            let combined_span = Span {
-                start_line: operator_span.start_line,
-                start_column: operator_span.start_column,
-                end_line: expr.span().end_line,
-                end_column: expr.span().end_column,
-                file_id: operator_span.file_id,
-            };
+            let combined_span = operator_span.merge(&expr.span());
 
-            Ok(Expr::Unary {
+            let expr = Expr::Unary {
                 op,
                 expr: Box::new(expr),
                 span: combined_span
-            })
+            };
 
+            Ok(expr)
         } else {
             self.primary()
         }
@@ -211,11 +180,7 @@ impl ExpressionParser for ParserCore {
             },
             Token::BoolLiteral(b) => {
                 self.advance();
-                if b {
-                    return Ok(Expr::BoolLiteral(true, *self.current_span()))
-                } else {
-                    return Ok(Expr::BoolLiteral(false, *self.current_span()))
-                }
+                return Ok(Expr::BoolLiteral(b, *self.current_span()))
             },
             Token::Identifier(name) => {
                 self.advance();
@@ -227,8 +192,7 @@ impl ExpressionParser for ParserCore {
                 self.consume(Token::RParen, "Expect ')' after expression.")?;
                 return Ok(Expr::Grouped(Box::from(expr), *self.current_span()))
             },
-            _ => return Err(self.error("Expect expression."))
+            t => return Err(self.error(&format!("Expect expression, got {:?} at {:?}", t, self.current_span())))
         }
     }
-
 }

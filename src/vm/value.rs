@@ -2,6 +2,7 @@ use crate::core::types::{PrimitiveType, Type};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Value {
+    Unit,
     Bool(bool),
     Int(i64),
     Uint(u64),
@@ -35,6 +36,7 @@ impl Value {
 
     pub fn get_type(&self) -> Option<Type> {
         match self {
+            Value::Unit => Some(Type::Primitive(PrimitiveType::Unit)),
             Value::Bool(_) => Some(Type::Primitive(PrimitiveType::Bool)),
             Value::Int(_) => Some(Type::Primitive(PrimitiveType::Int)),
             Value::Uint(_) => Some(Type::Primitive(PrimitiveType::Uint)),

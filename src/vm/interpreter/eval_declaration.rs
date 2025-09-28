@@ -2,7 +2,7 @@ use crate::{error::RuntimeError, frontend::parser::ast::Declaration, vm::{interp
 
 
 
-pub fn evaluate_declaration(interpreter: &mut Interpreter, decl: Declaration) -> Result<(), RuntimeError> {
+pub fn evaluate_declaration(interpreter: &mut Interpreter, decl: Declaration) -> Result<Value, RuntimeError> {
 
     match decl {
         Declaration::Function(function_decl, span) => {
@@ -12,7 +12,7 @@ pub fn evaluate_declaration(interpreter: &mut Interpreter, decl: Declaration) ->
                 function_decl
             );
             // Function declarations don't produce a value
-            Ok(())
+            Ok(Value::Unit)
         },
         Declaration::Struct(struct_decl, span) => {
             // Store the struct definition for type checking and creation
@@ -21,7 +21,7 @@ pub fn evaluate_declaration(interpreter: &mut Interpreter, decl: Declaration) ->
                 struct_decl
             );
             // Struct declarations don't produce a value
-            Ok(())
+            Ok(Value::Unit)
         },
         Declaration::Enum(enum_decl, span) => {
             // Store the enum definition for type checking and matching
@@ -30,7 +30,7 @@ pub fn evaluate_declaration(interpreter: &mut Interpreter, decl: Declaration) ->
                 enum_decl
             );
             // Enum declarations don't produce a value
-            Ok(())
+            Ok(Value::Unit)
         },
     }
 

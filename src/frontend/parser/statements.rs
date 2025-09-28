@@ -5,6 +5,7 @@ pub trait StatementParser {
     fn let_statement(&mut self) -> Result<Stmt, ParserError>;
     fn function_statement(&mut self) -> Result<Stmt, ParserError>;
     fn block_statement(&mut self) -> Result<Stmt, ParserError>;
+    fn if_statement(&mut self) -> Result<Stmt, ParserError>;
     fn consume_identifier(&mut self, message: &str) -> Result<String, ParserError>;
     fn consume_token(&mut self, expected: Token, message: &str) -> Result<(), ParserError>;
     fn consume_semicolon(&mut self) -> Result<(), ParserError> ;
@@ -18,6 +19,8 @@ impl StatementParser for ParserCore {
             self.let_statement()
         } else if self.matches(Token::Fn) {
             self.function_statement()
+        } else if self.matches(Token::If) {
+            self.if_statement()
         } else {
             let expr = self.expression()?;
             let span = expr.span();
@@ -52,13 +55,7 @@ impl StatementParser for ParserCore {
 
         let value = self.expression()?;
 
-        let span = Span {
-            start_line: let_span.start_line,
-            start_column: let_span.start_column,
-            end_line: value.span().end_line,
-            end_column: value.span().end_column,
-            file_id: let_span.file_id,
-        };
+        let span = let_span.merge(&value.span());
 
         self.consume_semicolon()?;
 
@@ -85,7 +82,7 @@ impl StatementParser for ParserCore {
 
         let mut params = vec![];
 
-        if !self.check(Token::RParen) {
+        if !self.check(&Token::RParen) {
             loop {
                 let param_name = self.consume_identifier("Expect parameter name")?;
 
@@ -115,13 +112,7 @@ impl StatementParser for ParserCore {
 
         let body = self.block_statement()?;
 
-        let span = Span {
-            start_line: fn_span.start_line,
-            start_column: fn_span.start_column,
-            end_line: body.span().end_line,
-            end_column: body.span().end_column,
-            file_id: fn_span.file_id,
-        };
+        let span = fn_span.merge(&body.span());
 
         Ok(Stmt::Function {
             name,
@@ -139,9 +130,10 @@ impl StatementParser for ParserCore {
 
         let mut statements = vec![];
         
+        // consume '{'
         self.advance();
 
-        while !self.check(Token::RBrace) && !self.is_at_end() {
+        while !self.check(&Token::RBrace) && !self.is_at_end() {
             statements.push(self.statement()?);
         }
 
@@ -152,6 +144,35 @@ impl StatementParser for ParserCore {
 
         Ok(Stmt::Block(statements, span))
 
+    }
+
+    fn if_statement(&mut self) -> Result<Stmt, ParserError> {
+        
+        let start_span = self.previous_token().unwrap().1;
+
+        let condition = self.expression()?;
+
+        let then_branch = Box::new(self.block_statement()?);
+
+        let else_branch;
+
+        if self.matches(Token::Else) {
+
+            else_branch = Some(Box::new(self.block_statement()?));
+
+        } else {
+            else_branch = None
+        };
+
+        Ok(
+            Stmt::If { 
+                condition,
+                then_branch,
+                else_branch,
+                span: start_span 
+            
+            }
+        )
     }
 
     // Helper Functions

@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::{core::types::{PrimitiveType, Type}, error::TypeError, frontend::{lexer::span::Span, parser::ast::{BinaryOp, Declaration, Expr, Program, Stmt, UnaryOp}}, vm::value::Value};
+use crate::{core::types::{PrimitiveType, Type}, error::TypeError, frontend::{lexer::span::Span, parser::ast::{BinaryOp, Declaration, Expr, FunctionDecl, Program, Stmt, UnaryOp}}, vm::value::Value};
 
 pub struct TypeChecker {
     type_context: HashMap<String, Type>, // Variables and their types
@@ -40,6 +40,34 @@ impl TypeChecker {
             Declaration::Struct(struct_decl, span) => Ok(()),
             Declaration::Enum(enum_decl, span) => Ok(()),
         }
+
+    }
+
+    fn register_function_signature(&mut self, function_decl: &FunctionDecl, span: &Span) -> Result<(), TypeError> {
+
+        let function_name = &function_decl.name;
+
+        if self.type_context.contains_key(function_name) {
+            return Err(TypeError::new(
+                span.clone(),
+                format!("Function '{}' is already declared", function_name),
+            ));
+        }
+
+        let param_types = function_decl.params.iter()
+            .map(|param| param.type_annotation.clone())
+            .collect();
+
+        let function_type = Type::Function {
+            params: param_types,
+            return_type: Box::new(function_decl.return_type.clone()),
+        };
+
+        self.type_context.insert(function_name.clone(), function_type);
+        Ok(())
+    }
+
+    fn check_function(&mut self, function_decl: &FunctionDecl, span: &Span) -> Result<(), TypeError> {
 
     }
 
@@ -207,6 +235,7 @@ impl TypeChecker {
 
     fn get_value_type(&self, value: &Value) -> Type {
         match value {
+            Value::Unit => Type::Primitive(PrimitiveType::Unit),
             Value::Int(_) => Type::Primitive(PrimitiveType::Int),
             Value::Uint(_) => Type::Primitive(PrimitiveType::Uint),
             Value::Float(_) => Type::Primitive(PrimitiveType::Float),

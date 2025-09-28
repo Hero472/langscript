@@ -2,6 +2,7 @@ use std::{collections::HashMap, fmt};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum PrimitiveType {
+    Unit,
     Bool,
     Int,
     Uint,
@@ -13,6 +14,7 @@ pub enum PrimitiveType {
 impl fmt::Display for PrimitiveType {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
+            PrimitiveType::Unit => write!(f, "unit"),
             PrimitiveType::Bool => write!(f, "bool"),
             PrimitiveType::Int => write!(f, "int"),
             PrimitiveType::Uint => write!(f, "uint"),
@@ -57,7 +59,7 @@ pub enum Type {
     Tuple(Vec<Type>),
     Function {
         params: Vec<Type>,
-        return_type: Box<Type>,
+        return_type: Box<Option<Type>>,
     },
     Struct(String)
 }

@@ -34,7 +34,7 @@ impl DeclarationParser for ParserCore {
         self.consume(Token::LParen, "Expect '(' after function name")?;
         
         let mut params = Vec::new();
-        if !self.check(Token::RParen) {
+        if !self.check(&Token::RParen) {
             loop {
                 let param_name = self.consume_identifier("Expect parameter name")?;
                 self.consume(Token::Colon, "Expect ':' after parameter name")?;
@@ -64,6 +64,7 @@ impl DeclarationParser for ParserCore {
         // fn name () -> {}
         let body = self.block_statement()?;
         let span = start_span.merge(&body.span());
+
         Ok(Declaration::Function(FunctionDecl {
             name,
             params,
